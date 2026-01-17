@@ -3,7 +3,7 @@
  * Replaces Supabase client
  */
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://46.62.134.239:3001';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://46.62.134.239';
 
 // Token management
 let authToken: string | null = localStorage.getItem('authToken');
