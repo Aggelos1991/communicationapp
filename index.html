@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FinComms</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              slate: {
+                850: '#1e293b',
+                900: '#0f172a',
+                950: '#020617',
+              },
+              brand: {
+                500: '#6366f1',
+                600: '#4f46e5',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter var', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+              display: ['Cal Sans', 'Inter var', 'Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+            },
+            fontWeight: {
+              medium: '550',
+              semibold: '650',
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      @supports (font-variation-settings: normal) {
+        body {
+          font-family: 'Inter var', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+      }
+
+      body {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #0f172a; /* slate-900 */
+        color: #f8fafc; /* slate-50 */
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+        letter-spacing: -0.011em;
+      }
+
+      .font-display {
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        letter-spacing: -0.025em;
+      }
+      /* Custom Scrollbar - High Contrast for AA Accessibility */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #020617; /* slate-950 */
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #475569; /* slate-600 */
+        border: 2px solid #020617;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; /* slate-400 */
+      }
+      /* Fix for focus rings visibility */
+      *:focus-visible {
+        outline: 2px solid #6366f1;
+        outline-offset: 2px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "clsx": "https://esm.sh/clsx@^2.1.1",
+    "xlsx": "https://esm.sh/xlsx@^0.18.5"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

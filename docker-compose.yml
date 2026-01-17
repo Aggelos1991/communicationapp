@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # MySQL 8 Database
+  mysql:
+    image: mysql:8.0
+    container_name: invoice_tracker_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: invoice_tracker
+      MYSQL_USER: invoice_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-invoice_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    command: --default-authentication-plugin=mysql_native_password
+             --character-set-server=utf8mb4
+             --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "invoice_user", "-p$$MYSQL_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - invoice_network
+
+  # Node.js Backend API
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: invoice_tracker_backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: invoice_tracker
+      DB_USER: invoice_user
+      DB_PASSWORD: ${MYSQL_PASSWORD:-invoice_password}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRY: 24h
+      BCRYPT_ROUNDS: 12
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - uploads:/app/uploads
+    networks:
+      - invoice_network
+
+  # Frontend (Vite Development Server)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: invoice_tracker_frontend
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - invoice_network
+
+volumes:
+  mysql_data:
+    driver: local
+  uploads:
+    driver: local
+
+networks:
+  invoice_network:
+    driver: bridge

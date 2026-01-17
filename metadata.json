@@ -1,0 +1,5 @@
+{
+  "name": "FinComms - Invoice Tracker",
+  "description": "A centralized finance communication hub for tracking invoices through structured flows, designed for AP, PO, and Payment teams.",
+  "requestFramePermissions": []
+}
