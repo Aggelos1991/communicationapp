@@ -4,11 +4,11 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api).*)",
       "destination": "/index.html"
     }
   ],
   "env": {
-    "VITE_API_BASE_URL": "https://46.62.134.239"
+    "VITE_API_BASE_URL": ""
   }
 }
