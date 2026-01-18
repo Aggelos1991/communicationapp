@@ -9,9 +9,10 @@ interface BadgeProps {
 
 const getBadgeStyle = (stage: FlowStage) => {
   if (stage === FlowStage.CLOSED) return 'bg-gray-800 text-gray-300 border-gray-700';
-  
+
   if (stage === FlowStage.MISSING_INVOICE_MISSING) return 'bg-red-900/30 text-red-400 border-red-900/50';
   if (stage === FlowStage.MISSING_INVOICE_SENT_TO_AP) return 'bg-purple-900/30 text-purple-400 border-purple-900/50';
+  if (stage === FlowStage.MISSING_INVOICE_SENT_TO_VENDOR) return 'bg-amber-900/30 text-amber-400 border-amber-900/50';
   if (stage === FlowStage.PO_PENDING_SENT) return 'bg-purple-900/30 text-purple-400 border-purple-900/50';
   
   // Combined check for Reconciled stage in both flows.

@@ -7,6 +7,7 @@ export enum FlowStage {
   CLOSED = 'Closed',
   MISSING_INVOICE_MISSING = 'Invoice Missing',
   MISSING_INVOICE_SENT_TO_AP = 'Sent to AP Processing',
+  MISSING_INVOICE_SENT_TO_VENDOR = 'Sent to Vendor',
   MISSING_INVOICE_PO_CREATED = 'PO Created',
   MISSING_INVOICE_POSTED = 'Posted',
   PO_PENDING_RECEIVED = 'Invoice Received',

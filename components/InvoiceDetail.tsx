@@ -393,6 +393,70 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
                                   </button>
                                 </div>
                               </div>
+                            ) : invoice.currentStage === FlowStage.MISSING_INVOICE_SENT_TO_VENDOR ? (
+                              <div className="mb-8 space-y-4">
+                                <p className="text-[10px] font-black text-amber-400 uppercase tracking-[0.3em] mb-2">Vendor Response Options</p>
+                                <div className="p-1 rounded-[2.2rem] bg-gradient-to-r from-emerald-600 via-green-500 to-teal-600 shadow-[0_15px_40px_rgba(16,185,129,0.3)] animate-in zoom-in-95 duration-500">
+                                  <button
+                                    onClick={() => onUpdateStage(invoice.id, FlowStage.PO_PENDING_CREATED)}
+                                    className="w-full bg-slate-950/95 hover:bg-transparent text-white px-8 py-5 rounded-[2rem] transition-all flex items-center justify-between group"
+                                  >
+                                    <div className="text-left">
+                                      <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] group-hover:text-white transition-colors">Invoice Received from Vendor</p>
+                                      <p className="text-xl font-black tracking-tight group-hover:translate-x-1 transition-transform">PO Created</p>
+                                    </div>
+                                    <div className="bg-emerald-600 p-3 rounded-2xl shadow-xl group-hover:scale-110 transition-all">
+                                      <CheckCircle2 size={24} />
+                                    </div>
+                                  </button>
+                                </div>
+                                <div className="p-1 rounded-[2.2rem] bg-gradient-to-r from-rose-600 via-red-500 to-orange-600 shadow-[0_15px_40px_rgba(225,29,72,0.3)] animate-in zoom-in-95 duration-500">
+                                  <button
+                                    onClick={() => onUpdateStage(invoice.id, FlowStage.MISSING_INVOICE_MISSING)}
+                                    className="w-full bg-slate-950/95 hover:bg-transparent text-white px-8 py-5 rounded-[2rem] transition-all flex items-center justify-between group"
+                                  >
+                                    <div className="text-left">
+                                      <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] group-hover:text-white transition-colors">No Response / Still Missing</p>
+                                      <p className="text-xl font-black tracking-tight group-hover:translate-x-1 transition-transform">Back to Invoice Missing</p>
+                                    </div>
+                                    <div className="bg-rose-600 p-3 rounded-2xl shadow-xl group-hover:scale-110 transition-all">
+                                      <ArrowRight size={24} className="rotate-180" />
+                                    </div>
+                                  </button>
+                                </div>
+                              </div>
+                            ) : invoice.currentStage === FlowStage.MISSING_INVOICE_MISSING && activeView === 'RECON' ? (
+                              <div className="mb-8 space-y-4">
+                                <p className="text-[10px] font-black text-brand-400 uppercase tracking-[0.3em] mb-2">Reconciliation Options</p>
+                                <div className="p-1 rounded-[2.2rem] bg-gradient-to-r from-brand-600 via-indigo-500 to-violet-600 shadow-[0_15px_40px_rgba(79,70,229,0.3)] animate-in zoom-in-95 duration-500">
+                                  <button
+                                    onClick={() => handleStageClick(stage, index)}
+                                    className="w-full bg-slate-950/95 hover:bg-transparent text-white px-8 py-5 rounded-[2rem] transition-all flex items-center justify-between group"
+                                  >
+                                    <div className="text-left">
+                                      <p className="text-[10px] font-black text-brand-400 uppercase tracking-[0.3em] group-hover:text-white transition-colors">Forward for Processing</p>
+                                      <p className="text-xl font-black tracking-tight group-hover:translate-x-1 transition-transform">Sent to AP Processing</p>
+                                    </div>
+                                    <div className="bg-brand-600 p-3 rounded-2xl shadow-xl group-hover:scale-110 transition-all">
+                                      <ArrowRight size={24} />
+                                    </div>
+                                  </button>
+                                </div>
+                                <div className="p-1 rounded-[2.2rem] bg-gradient-to-r from-amber-600 via-orange-500 to-yellow-600 shadow-[0_15px_40px_rgba(245,158,11,0.3)] animate-in zoom-in-95 duration-500">
+                                  <button
+                                    onClick={() => onUpdateStage(invoice.id, FlowStage.MISSING_INVOICE_SENT_TO_VENDOR)}
+                                    className="w-full bg-slate-950/95 hover:bg-transparent text-white px-8 py-5 rounded-[2rem] transition-all flex items-center justify-between group"
+                                  >
+                                    <div className="text-left">
+                                      <p className="text-[10px] font-black text-amber-400 uppercase tracking-[0.3em] group-hover:text-white transition-colors">Request Invoice from Supplier</p>
+                                      <p className="text-xl font-black tracking-tight group-hover:translate-x-1 transition-transform">Sent to Vendor</p>
+                                    </div>
+                                    <div className="bg-amber-600 p-3 rounded-2xl shadow-xl group-hover:scale-110 transition-all">
+                                      <Send size={24} />
+                                    </div>
+                                  </button>
+                                </div>
+                              </div>
                             ) : (
                               <div className="mb-8 p-1 rounded-[2.2rem] bg-gradient-to-r from-brand-600 via-indigo-500 to-violet-600 shadow-[0_15px_40px_rgba(79,70,229,0.3)] animate-in zoom-in-95 duration-500">
                                 <button
