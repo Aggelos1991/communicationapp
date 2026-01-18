@@ -4,7 +4,7 @@ import { FLOW_CONFIG, TEAM_STAGES, getStageOwner } from '../constants';
 import { X, CheckCircle2, Clock, Mail, ShieldCheck, Send, Building2, FileText, Image as ImageIcon, FileSpreadsheet, File, ArrowRight, Users, Lock, UserCircle, History, Layers, Paperclip, ChevronRight, Zap, Euro, Landmark, Inbox, Edit, Save, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Badge } from './ui/Badge';
-import api from '../lib/api';
+import api, { downloadFile } from '../lib/api';
 
 interface InvoiceDetailProps {
   invoice: Invoice;
@@ -91,7 +91,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
   const flowStages = FLOW_CONFIG[invoice.flowType];
   const currentStageIndex = flowStages.indexOf(invoice.currentStage);
   
-  const isFlowHidden = invoice.source === 'MANUAL' && invoice.flowType === FlowType.PO_PENDING;
+  const isFlowHidden = invoice.source === 'MANUAL';
   
   const handleStageClick = (stage: FlowStage, index: number) => {
     console.log('Stage button clicked:', {
@@ -319,16 +319,16 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
                 </div>
 
                 <div className="space-y-6 mt-10">
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-xl">
+                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">COMMUNICATION / NOTES</p>
+                     <StageInput stage={invoice.currentStage} invoiceId={invoice.id} onAddEvidence={onAddEvidence} onAfterSubmit={loadData} isCurrent={true} />
+                  </div>
                   <div className="flex items-center justify-between px-2">
                      <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
                        <History size={14} /> Communication History
                      </h3>
                   </div>
                   <EvidenceSection evidence={evidence} />
-                  <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Post Note or Evidence (Optional)</p>
-                     <StageInput stage={invoice.currentStage} invoiceId={invoice.id} onAddEvidence={onAddEvidence} onAfterSubmit={loadData} isCurrent={true} />
-                  </div>
                 </div>
               </div>
             ) : (
@@ -438,17 +438,14 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
                     <p className="text-slate-300 italic mb-6 border-l-4 border-emerald-500/30 pl-4 py-2 bg-emerald-500/5 rounded-r-xl">"{paymentValidation?.comments}"</p>
                     <div className="flex flex-wrap gap-2">
                        {paymentValidation?.attachments?.map((f, i) => (
-                         <a
+                         <button
                            key={i}
-                           href={`http://localhost:3000${f.url}`}
-                           download={f.name}
-                           target="_blank"
-                           rel="noopener noreferrer"
+                           onClick={() => downloadFile(f.url, f.name)}
                            className="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded-xl border border-emerald-900/20 hover:border-emerald-500 transition-colors cursor-pointer group/file"
                          >
                             {getFileIcon(f.type)}
                             <span className="text-[10px] font-bold text-slate-400 group-hover/file:text-emerald-400">{f.name}</span>
-                         </a>
+                         </button>
                        ))}
                     </div>
                   </div>
@@ -564,18 +561,17 @@ const EvidenceSection = ({ evidence }: { evidence: Evidence[] }) => (
         {ev.attachments && ev.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4 pl-1">
             {ev.attachments.map((file, idx) => (
-              <a
+              <button
                 key={idx}
-                href={`http://localhost:3000${file.url}`}
-                download={file.name}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadFile(file.url, file.name);
+                }}
                 className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 hover:border-emerald-500 transition-colors cursor-pointer group/file"
-                onClick={(e) => e.stopPropagation()}
               >
                 {getFileIcon(file.type)}
                 <span className="text-[10px] font-bold text-slate-500 group-hover/file:text-emerald-400 truncate max-w-[140px]">{file.name}</span>
-              </a>
+              </button>
             ))}
           </div>
         )}
@@ -615,8 +611,8 @@ const StageInput: React.FC<{ stage: FlowStage; invoiceId: string; onAddEvidence:
   };
 
   return (
-    <div className={clsx("mt-4 transition-all rounded-3xl p-1", isCurrent ? "bg-slate-900 border border-slate-800 shadow-lg" : "opacity-40 hover:opacity-100")}>
-      <div className="p-4 space-y-4">
+    <div className={clsx("mt-4 transition-all rounded-2xl", isCurrent ? "bg-slate-800/50 border border-slate-700" : "opacity-40 hover:opacity-100")}>
+      <div className="p-5 space-y-4">
         {files.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {files.map((f, i) => (
@@ -626,14 +622,22 @@ const StageInput: React.FC<{ stage: FlowStage; invoiceId: string; onAddEvidence:
             ))}
           </div>
         )}
-        <textarea className="w-full bg-transparent text-sm text-slate-200 placeholder-slate-700 outline-none resize-none px-1" rows={2} placeholder="Optional: Type a note or attach context..." value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSubmit())} />
-        <div className="flex items-center justify-between border-t border-slate-800 pt-3">
+        <textarea
+          className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-600 outline-none resize-none focus:ring-2 focus:ring-brand-500/50 transition-all"
+          rows={4}
+          placeholder="Initial reason for tracking or communication thread context..."
+          value={text}
+          onChange={e => setText(e.target.value)}
+        />
+        <div className="flex items-center justify-between pt-2">
            <div className="flex gap-2">
-              <button onClick={() => setIsEmail(!isEmail)} className={clsx("p-2 rounded-xl transition-colors", isEmail ? "bg-blue-600/20 text-blue-400" : "text-slate-600 hover:bg-slate-800 hover:text-slate-300")} title="Email Sync"><Mail size={16} /></button>
-              <button onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-600 hover:text-white transition-colors"><Paperclip size={16} /></button>
+              <button onClick={() => setIsEmail(!isEmail)} className={clsx("p-2 rounded-xl transition-colors", isEmail ? "bg-blue-600/20 text-blue-400" : "text-slate-500 hover:bg-slate-700 hover:text-slate-300")} title="Email Sync"><Mail size={16} /></button>
+              <button onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-500 hover:text-white hover:bg-slate-700 rounded-xl transition-colors"><Paperclip size={16} /></button>
               <input type="file" ref={fileInputRef} className="hidden" multiple onChange={e => e.target.files && setFiles(prev => [...prev, ...Array.from(e.target.files!)])} />
            </div>
-           <button onClick={handleSubmit} disabled={!text.trim() && files.length === 0} className="bg-brand-600 hover:bg-brand-500 text-white p-2 rounded-xl transition-all shadow-lg shadow-brand-900/30 disabled:opacity-0 translate-y-0 active:translate-y-1"><Send size={16} /></button>
+           <button onClick={handleSubmit} disabled={!text.trim() && files.length === 0} className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-2 rounded-xl transition-all shadow-lg shadow-brand-900/30 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+             <Send size={14} /> Post Note
+           </button>
         </div>
       </div>
     </div>

@@ -10,19 +10,25 @@ router.use(authenticateToken);
 router.get('/invoice/:invoiceId', async (req, res, next) => {
   try {
     const [validations] = await db.query(`
-      SELECT pv.*,
-             COUNT(a.id) as attachment_count
+      SELECT pv.*
       FROM payment_validations pv
-      LEFT JOIN attachments a ON pv.id = a.payment_validation_id
       WHERE pv.invoice_id = ?
-      GROUP BY pv.id
     `, [req.params.invoiceId]);
 
     if (validations.length === 0) {
-      return res.status(404).json({ error: 'Payment validation not found' });
+      return res.json(null);
     }
 
-    res.json(validations[0]);
+    // Fetch attachments for this payment validation
+    const [attachments] = await db.query(
+      'SELECT id, name, url, type, size, created_at FROM attachments WHERE payment_validation_id = ? ORDER BY created_at ASC',
+      [validations[0].id]
+    );
+
+    res.json({
+      ...validations[0],
+      attachments
+    });
   } catch (error) {
     next(error);
   }
@@ -31,7 +37,7 @@ router.get('/invoice/:invoiceId', async (req, res, next) => {
 // Create payment validation
 router.post('/', async (req, res, next) => {
   try {
-    const { invoice_id, comments } = req.body;
+    const { invoice_id, comments, attachments } = req.body;
 
     if (!invoice_id) {
       return res.status(400).json({ error: 'invoice_id is required' });
@@ -63,6 +69,35 @@ router.post('/', async (req, res, next) => {
       INSERT INTO payment_validations (id, invoice_id, validated_by, validated_by_id, comments)
       VALUES (?, ?, ?, ?, ?)
     `, [validationId, invoice_id, validated_by, req.user.id, comments || null]);
+
+    // Link attachments to this payment validation if any were uploaded
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      for (const file of attachments) {
+        // Determine attachment type from mimetype or extension
+        let attachmentType = 'OTHER';
+        const mimetype = file.mimetype || '';
+        if (mimetype.startsWith('image/')) {
+          attachmentType = 'IMAGE';
+        } else if (mimetype === 'application/pdf') {
+          attachmentType = 'PDF';
+        } else if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) {
+          attachmentType = 'EXCEL';
+        }
+
+        const attachmentId = uuidv4();
+        await db.query(`
+          INSERT INTO attachments (id, payment_validation_id, name, url, type, size)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          attachmentId,
+          validationId,
+          file.originalName || file.filename,
+          file.path,
+          attachmentType,
+          file.size || 0
+        ]);
+      }
+    }
 
     // Update invoice payment status to PAID
     await db.query(

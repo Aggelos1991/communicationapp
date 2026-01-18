@@ -3,7 +3,7 @@
  * Replaces Supabase client
  */
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://interior-commerce-encyclopedia-circus.trycloudflare.com';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://46.62.134.239:3001';
 
 // Token management
 let authToken: string | null = localStorage.getItem('authToken');
@@ -122,11 +122,13 @@ export const api = {
 
     getById: (id: string) => apiFetch(`/api/invoices/${id}`),
 
-    create: (invoice: any) =>
-      apiFetch('/api/invoices', {
+    create: (invoice: any) => {
+      const { submissionTimestamp, submission_timestamp, ...rest } = invoice;
+      return apiFetch('/api/invoices', {
         method: 'POST',
-        body: JSON.stringify(toSnakeCase(invoice)),
-      }),
+        body: JSON.stringify(toSnakeCase(rest)),
+      });
+    },
 
     update: (id: string, updates: any) =>
       apiFetch(`/api/invoices/${id}`, {
@@ -237,6 +239,40 @@ export const api = {
         body: JSON.stringify({ totp_secret, totp_enabled }),
       }),
   },
+};
+
+// Helper to download a file
+export const downloadFile = async (url: string, filename: string) => {
+  try {
+    // Extract the file path from the URL (e.g., /uploads/file.pdf -> file.pdf)
+    const filePath = url.replace(/^\/uploads\//, '');
+    const downloadUrl = `${API_URL}/api/download/${filePath}?name=${encodeURIComponent(filename)}`;
+
+    const response = await fetch(downloadUrl, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Download failed');
+    }
+
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error('Download error:', error);
+    throw error;
+  }
 };
 
 export default api;

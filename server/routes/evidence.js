@@ -10,16 +10,27 @@ router.use(authenticateToken);
 router.get('/invoice/:invoiceId', async (req, res, next) => {
   try {
     const [evidence] = await db.query(`
-      SELECT e.*,
-             COUNT(a.id) as attachment_count
+      SELECT e.*
       FROM evidence e
-      LEFT JOIN attachments a ON e.id = a.evidence_id
       WHERE e.invoice_id = ?
-      GROUP BY e.id
       ORDER BY e.created_at ASC
     `, [req.params.invoiceId]);
 
-    res.json(evidence);
+    // Fetch attachments for each evidence item
+    const evidenceWithAttachments = await Promise.all(
+      evidence.map(async (ev) => {
+        const [attachments] = await db.query(
+          'SELECT id, name, url, type, size, created_at FROM attachments WHERE evidence_id = ? ORDER BY created_at ASC',
+          [ev.id]
+        );
+        return {
+          ...ev,
+          attachments
+        };
+      })
+    );
+
+    res.json(evidenceWithAttachments);
   } catch (error) {
     next(error);
   }
@@ -28,7 +39,7 @@ router.get('/invoice/:invoiceId', async (req, res, next) => {
 // Create evidence
 router.post('/', async (req, res, next) => {
   try {
-    const { invoice_id, type, content, stage_added_at } = req.body;
+    const { invoice_id, type, content, stage_added_at, attachments } = req.body;
 
     if (!invoice_id || !type || !content || !stage_added_at) {
       return res.status(400).json({
@@ -52,6 +63,35 @@ router.post('/', async (req, res, next) => {
       INSERT INTO evidence (id, invoice_id, type, content, stage_added_at, created_by, created_by_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [evidenceId, invoice_id, type, content, stage_added_at, created_by, req.user.id]);
+
+    // Link attachments to this evidence if any were uploaded
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      for (const file of attachments) {
+        // Determine attachment type from mimetype or extension
+        let attachmentType = 'OTHER';
+        const mimetype = file.mimetype || '';
+        if (mimetype.startsWith('image/')) {
+          attachmentType = 'IMAGE';
+        } else if (mimetype === 'application/pdf') {
+          attachmentType = 'PDF';
+        } else if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) {
+          attachmentType = 'EXCEL';
+        }
+
+        const attachmentId = uuidv4();
+        await db.query(`
+          INSERT INTO attachments (id, evidence_id, name, url, type, size)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          attachmentId,
+          evidenceId,
+          file.originalName || file.filename,
+          file.path,
+          attachmentType,
+          file.size || 0
+        ]);
+      }
+    }
 
     const [created] = await db.query('SELECT * FROM evidence WHERE id = ?', [evidenceId]);
 
