@@ -37,7 +37,10 @@ router.get('/invoice/:invoiceId', async (req, res, next) => {
 // Create payment validation
 router.post('/', async (req, res, next) => {
   try {
-    const { invoice_id, comments, attachments } = req.body;
+    // Accept both snake_case and camelCase
+    const invoice_id = req.body.invoice_id || req.body.invoiceId;
+    const comments = req.body.comments;
+    const attachments = req.body.attachments;
 
     if (!invoice_id) {
       return res.status(400).json({ error: 'invoice_id is required' });

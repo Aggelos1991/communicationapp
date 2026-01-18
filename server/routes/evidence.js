@@ -39,9 +39,17 @@ router.get('/invoice/:invoiceId', async (req, res, next) => {
 // Create evidence
 router.post('/', async (req, res, next) => {
   try {
-    const { invoice_id, type, content, stage_added_at, attachments } = req.body;
+    console.log('Evidence POST body:', JSON.stringify(req.body, null, 2));
+
+    // Accept both snake_case and camelCase
+    const invoice_id = req.body.invoice_id || req.body.invoiceId;
+    const type = req.body.type;
+    const content = req.body.content;
+    const stage_added_at = req.body.stage_added_at || req.body.stageAddedAt;
+    const attachments = req.body.attachments;
 
     if (!invoice_id || !type || !content || !stage_added_at) {
+      console.log('Missing fields - invoice_id:', invoice_id, 'type:', type, 'content:', content, 'stage_added_at:', stage_added_at);
       return res.status(400).json({
         error: 'Missing required fields: invoice_id, type, content, stage_added_at'
       });

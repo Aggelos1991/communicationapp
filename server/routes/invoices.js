@@ -65,20 +65,19 @@ router.get('/:id', async (req, res, next) => {
 // Create invoice
 router.post('/', async (req, res, next) => {
   try {
-    const {
-      invoice_number,
-      vendor,
-      amount,
-      currency = 'EUR',
-      entity,
-      po_creator,
-      sharepoint_url,
-      flow_type,
-      current_stage,
-      source = 'MANUAL',
-      status_detail = 'NONE',
-      submission_timestamp
-    } = req.body;
+    // Accept both snake_case and camelCase
+    const invoice_number = req.body.invoice_number || req.body.invoiceNumber;
+    const vendor = req.body.vendor;
+    const amount = req.body.amount;
+    const currency = req.body.currency || 'EUR';
+    const entity = req.body.entity;
+    const po_creator = req.body.po_creator || req.body.poCreator;
+    const sharepoint_url = req.body.sharepoint_url || req.body.sharepointUrl;
+    const flow_type = req.body.flow_type || req.body.flowType;
+    const current_stage = req.body.current_stage || req.body.currentStage;
+    const source = req.body.source || 'MANUAL';
+    const status_detail = req.body.status_detail || req.body.statusDetail || 'NONE';
+    const submission_timestamp = req.body.submission_timestamp || req.body.submissionTimestamp;
 
     // Validate required fields
     if (!invoice_number || !vendor || !flow_type || !current_stage) {
@@ -136,15 +135,32 @@ router.post('/', async (req, res, next) => {
 router.patch('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const allowedFields = [
-      'vendor', 'amount', 'currency', 'entity', 'po_creator', 'sharepoint_url',
-      'current_stage', 'status_detail', 'payment_status', 'submission_timestamp'
-    ];
+
+    // Map camelCase to snake_case
+    const fieldMappings = {
+      vendor: 'vendor',
+      amount: 'amount',
+      currency: 'currency',
+      entity: 'entity',
+      poCreator: 'po_creator',
+      po_creator: 'po_creator',
+      sharepointUrl: 'sharepoint_url',
+      sharepoint_url: 'sharepoint_url',
+      currentStage: 'current_stage',
+      current_stage: 'current_stage',
+      statusDetail: 'status_detail',
+      status_detail: 'status_detail',
+      paymentStatus: 'payment_status',
+      payment_status: 'payment_status',
+      submissionTimestamp: 'submission_timestamp',
+      submission_timestamp: 'submission_timestamp'
+    };
 
     const updates = {};
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
+    Object.keys(req.body).forEach(key => {
+      const dbField = fieldMappings[key];
+      if (dbField && req.body[key] !== undefined) {
+        updates[dbField] = req.body[key];
       }
     });
 

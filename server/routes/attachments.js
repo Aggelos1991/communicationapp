@@ -76,7 +76,9 @@ router.get('/payment-validation/:paymentValidationId', async (req, res, next) =>
 // Upload attachment
 router.post('/upload', upload.single('file'), async (req, res, next) => {
   try {
-    const { evidence_id, payment_validation_id } = req.body;
+    // Accept both snake_case and camelCase
+    const evidence_id = req.body.evidence_id || req.body.evidenceId;
+    const payment_validation_id = req.body.payment_validation_id || req.body.paymentValidationId;
 
     // Must have exactly one parent
     if ((!evidence_id && !payment_validation_id) || (evidence_id && payment_validation_id)) {

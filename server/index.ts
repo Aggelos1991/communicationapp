@@ -353,12 +353,11 @@ app.post('/api/upload', authenticateToken, upload.array('files', 10), async (req
     }
 
     const uploadedFiles = files.map(file => ({
-      name: file.originalname,
-      url: `/uploads/${file.filename}`,
-      type: file.mimetype.includes('image') ? 'IMAGE' :
-            file.mimetype.includes('pdf') ? 'PDF' :
-            file.originalname.endsWith('.xls') || file.originalname.endsWith('.xlsx') ? 'EXCEL' : 'OTHER',
-      size: file.size
+      filename: file.filename,
+      originalName: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      path: `/uploads/${file.filename}`
     }));
 
     res.json({ files: uploadedFiles });
