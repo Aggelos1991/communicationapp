@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: invoice-tracker-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DB_HOST
+        value: 46.62.134.239
+      - key: DB_PORT
+        value: 3306
+      - key: DB_NAME
+        value: invoice_tracker
+      - key: DB_USER
+        value: invoice_user
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
