@@ -3,7 +3,10 @@
  * Replaces Supabase client
  */
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://46.62.134.239:3001';
+// Use VITE_API_BASE_URL from environment (set in Netlify dashboard)
+// For local development, uses the local server
+// For production on Netlify, set VITE_API_BASE_URL to your Render backend URL
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // Token management
 let authToken: string | null = localStorage.getItem('authToken');
