@@ -345,7 +345,20 @@ const App: React.FC = () => {
     if (!user) return;
 
     try {
-      await api.invoices.create(newInvoice);
+      const createdInvoice = await api.invoices.create(newInvoice);
+
+      // If there's evidence (communication notes), create it for the invoice
+      if (newInvoice.evidence && newInvoice.evidence.length > 0) {
+        for (const ev of newInvoice.evidence) {
+          await api.evidence.create({
+            invoiceId: createdInvoice.id,
+            type: ev.type,
+            content: ev.content,
+            stageAddedAt: ev.stageAddedAt,
+            attachments: ev.attachments || [],
+          });
+        }
+      }
 
       // Reload all invoices after manual submission
       await loadInvoices();
