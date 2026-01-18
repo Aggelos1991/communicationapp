@@ -26,4 +26,3 @@ services:
         value: production
       - key: FRONTEND_URL
         value: https://fincomms-app.netlify.app
-        sync: false
