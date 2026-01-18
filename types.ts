@@ -59,6 +59,7 @@ export interface Invoice {
   createdByRole?: string; // User role who created the entry
   evidence: Evidence[];
   paymentStatus: PaymentStatus;
+  paymentBlocked: boolean; // Flag for blocking payment in Reconciliation
   paymentValidation?: {
     validatedAt: string;
     validatedBy: string;

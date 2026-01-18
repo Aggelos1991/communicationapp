@@ -145,6 +145,12 @@ export const api = {
         body: JSON.stringify({ ids }),
       }),
 
+    bulkUpdate: (ids: string[], updates: any) =>
+      apiFetch('/api/invoices/bulk-update', {
+        method: 'POST',
+        body: JSON.stringify({ ids, updates: toSnakeCase(updates) }),
+      }),
+
     getStats: () => apiFetch('/api/invoices/stats/summary'),
   },
 

@@ -83,6 +83,7 @@ CREATE TABLE invoices (
   source VARCHAR(20) DEFAULT 'MANUAL' COMMENT 'MANUAL, EXCEL, or RECON',
   status_detail VARCHAR(20) DEFAULT 'NONE' COMMENT 'WITHOUT PO, EXR PENDING, or NONE',
   payment_status VARCHAR(20) DEFAULT 'NONE' COMMENT 'NONE, REQUESTED, or PAID',
+  payment_blocked BOOLEAN DEFAULT FALSE COMMENT 'Flag for blocking payment in Reconciliation',
 
   -- Timestamps
   submission_timestamp TIMESTAMP NULL COMMENT 'When invoice was submitted',
@@ -103,7 +104,7 @@ CREATE TABLE invoices (
   -- Stage validation per flow type
   CONSTRAINT chk_missing_invoice_stage CHECK (
     flow_type != 'MISSING_INVOICE' OR
-    current_stage IN ('Invoice Missing', 'Sent to AP Processing', 'PO Created', 'Posted', 'Closed')
+    current_stage IN ('Invoice Missing', 'Sent to AP Processing', 'Sent to Vendor', 'PO Created', 'Posted', 'Closed')
   ),
   CONSTRAINT chk_po_pending_stage CHECK (
     flow_type != 'PO_PENDING' OR
@@ -217,6 +218,7 @@ SELECT
   i.status_detail,
   i.submission_timestamp,
   i.payment_status,
+  i.payment_blocked,
   i.created_at,
   i.updated_at,
   i.created_by,
@@ -236,7 +238,7 @@ GROUP BY
   i.id, i.invoice_number, i.vendor, i.amount, i.currency, i.entity,
   i.po_creator, i.sharepoint_url, i.flow_type, i.current_stage,
   i.source, i.status_detail, i.submission_timestamp, i.payment_status,
-  i.created_at, i.updated_at, i.created_by, i.created_by_role, i.created_by_id,
+  i.payment_blocked, i.created_at, i.updated_at, i.created_by, i.created_by_role, i.created_by_id,
   p.name, pv.validated_at, pv.validated_by;
 
 -- =====================================================

@@ -4,3 +4,9 @@ dist/
 .DS_Store
 *.log
 .env
+server/.env
+.claude/
+uploads/
+*.pem
+*.key
+*.crt

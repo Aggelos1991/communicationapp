@@ -135,6 +135,8 @@ router.post('/', async (req, res, next) => {
 router.patch('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
+    console.log('PATCH invoice body:', JSON.stringify(req.body, null, 2));
+    console.log('PATCH invoice body keys:', Object.keys(req.body));
 
     // Map camelCase to snake_case
     const fieldMappings = {
@@ -152,6 +154,8 @@ router.patch('/:id', async (req, res, next) => {
       status_detail: 'status_detail',
       paymentStatus: 'payment_status',
       payment_status: 'payment_status',
+      paymentBlocked: 'payment_blocked',
+      payment_blocked: 'payment_blocked',
       submissionTimestamp: 'submission_timestamp',
       submission_timestamp: 'submission_timestamp'
     };
@@ -215,6 +219,67 @@ router.delete('/:id', async (req, res, next) => {
 
     res.status(204).send();
   } catch (error) {
+    next(error);
+  }
+});
+
+// Bulk update invoices (for payment blocked and stage changes)
+router.post('/bulk-update', async (req, res, next) => {
+  try {
+    const { ids, updates } = req.body;
+    console.log('Bulk update request:', { ids, updates });
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Invalid invoice IDs' });
+    }
+
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ error: 'Invalid updates' });
+    }
+
+    // Map camelCase to snake_case
+    const fieldMappings = {
+      currentStage: 'current_stage',
+      current_stage: 'current_stage',
+      paymentBlocked: 'payment_blocked',
+      payment_blocked: 'payment_blocked',
+      paymentStatus: 'payment_status',
+      payment_status: 'payment_status'
+    };
+
+    const dbUpdates = {};
+    Object.keys(updates).forEach(key => {
+      const dbField = fieldMappings[key];
+      if (dbField && updates[key] !== undefined) {
+        dbUpdates[dbField] = updates[key];
+      }
+    });
+
+    console.log('DB updates:', dbUpdates);
+
+    if (Object.keys(dbUpdates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    // Build update query
+    const setClause = Object.keys(dbUpdates).map(key => `${key} = ?`).join(', ');
+    const placeholders = ids.map(() => '?').join(',');
+    const values = [...Object.values(dbUpdates), ...ids];
+
+    console.log('SQL:', `UPDATE invoices SET ${setClause} WHERE id IN (${placeholders})`);
+    console.log('Values:', values);
+
+    const [result] = await db.query(
+      `UPDATE invoices SET ${setClause} WHERE id IN (${placeholders})`,
+      values
+    );
+
+    console.log('Update result:', result);
+    console.log('Affected rows:', result.affectedRows);
+
+    res.json({ updated: ids.length, affectedRows: result.affectedRows });
+  } catch (error) {
+    console.error('Bulk update error:', error);
     next(error);
   }
 });

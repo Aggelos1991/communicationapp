@@ -311,6 +311,45 @@ const App: React.FC = () => {
     }
   };
 
+  const handleTogglePaymentBlocked = async (id: string, blocked: boolean) => {
+    if (!user) return;
+
+    try {
+      await api.invoices.update(id, { paymentBlocked: blocked });
+      // Reload all invoices to update UI
+      await loadInvoices();
+    } catch (error) {
+      console.error('Error toggling payment blocked:', error);
+      alert('Failed to update payment blocked status. Please try again.');
+    }
+  };
+
+  const handleBulkUpdatePaymentBlocked = async (ids: string[], blocked: boolean) => {
+    if (!user) return;
+
+    try {
+      await api.invoices.bulkUpdate(ids, { paymentBlocked: blocked });
+      await loadInvoices();
+    } catch (error) {
+      console.error('Error bulk updating payment blocked:', error);
+      alert('Failed to update payment blocked status. Please try again.');
+    }
+  };
+
+  const handleBulkUpdateStage = async (ids: string[], stage: FlowStage) => {
+    if (!user) return;
+
+    console.log('Bulk update stage called:', { ids, stage });
+    try {
+      const result = await api.invoices.bulkUpdate(ids, { currentStage: stage });
+      console.log('Bulk update result:', result);
+      await loadInvoices();
+    } catch (error) {
+      console.error('Error bulk updating stage:', error);
+      alert('Failed to update invoice stages. Please try again.');
+    }
+  };
+
   const handleBulkUpload = async (newInvoicesData: Partial<Invoice>[]) => {
     if (!user) return;
 
@@ -529,6 +568,8 @@ const App: React.FC = () => {
                     onSelectInvoice={setSelectedInvoice}
                     onDeleteInvoice={handleDeleteInvoice}
                     onBulkDelete={handleBulkDelete}
+                    activeView="AP"
+                    onBulkUpdateStage={handleBulkUpdateStage}
                   />
                 </section>
 
@@ -546,6 +587,8 @@ const App: React.FC = () => {
                     onSelectInvoice={setSelectedInvoice}
                     onDeleteInvoice={handleDeleteInvoice}
                     onBulkDelete={handleBulkDelete}
+                    activeView="AP"
+                    onBulkUpdateStage={handleBulkUpdateStage}
                   />
                 </section>
               </div>
@@ -564,6 +607,10 @@ const App: React.FC = () => {
                   onSelectInvoice={setSelectedInvoice}
                   onDeleteInvoice={handleDeleteInvoice}
                   onBulkDelete={handleBulkDelete}
+                  activeView={activeView}
+                  onTogglePaymentBlocked={handleTogglePaymentBlocked}
+                  onBulkUpdatePaymentBlocked={handleBulkUpdatePaymentBlocked}
+                  onBulkUpdateStage={handleBulkUpdateStage}
                 />
               </section>
             ) : activeView === 'PAYMENT' ? (
@@ -581,6 +628,8 @@ const App: React.FC = () => {
                   onSelectInvoice={setSelectedInvoice}
                   onDeleteInvoice={handleDeleteInvoice}
                   onBulkDelete={handleBulkDelete}
+                  activeView="PAYMENT"
+                  onBulkUpdateStage={handleBulkUpdateStage}
                 />
               </section>
             ) : (
@@ -598,6 +647,8 @@ const App: React.FC = () => {
                   onSelectInvoice={setSelectedInvoice}
                   onDeleteInvoice={handleDeleteInvoice}
                   onBulkDelete={handleBulkDelete}
+                  activeView="ALL"
+                  onBulkUpdateStage={handleBulkUpdateStage}
                 />
               </section>
             )}

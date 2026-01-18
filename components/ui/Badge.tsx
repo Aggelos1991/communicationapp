@@ -29,16 +29,13 @@ const getBadgeStyle = (stage: FlowStage) => {
 };
 
 export const Badge: React.FC<BadgeProps> = ({ stage, className }) => {
-  // Display "PO Pending" instead of "PO Created"
-  const displayText = stage === FlowStage.PO_PENDING_CREATED ? 'PO Pending' : stage;
-
   return (
     <span className={clsx(
       'inline-block px-2.5 py-1 rounded-full text-xs font-medium border text-center leading-normal whitespace-normal',
       getBadgeStyle(stage),
       className
     )}>
-      {displayText}
+      {stage}
     </span>
   );
 };

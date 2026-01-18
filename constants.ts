@@ -4,11 +4,11 @@ import { FlowStage, FlowType, Invoice } from './types';
 export const TEAM_STAGES = {
   RECON: [
     FlowStage.MISSING_INVOICE_MISSING,
-    FlowStage.MISSING_INVOICE_SENT_TO_VENDOR,
     FlowStage.MISSING_INVOICE_POSTED
   ],
   AP: [
     FlowStage.MISSING_INVOICE_SENT_TO_AP,
+    FlowStage.MISSING_INVOICE_SENT_TO_VENDOR,
     FlowStage.PO_PENDING_RECEIVED,
     FlowStage.PO_PENDING_SENT,
     FlowStage.PO_PENDING_CREATED,
