@@ -6,15 +6,9 @@
 // Use VITE_API_BASE_URL from environment (set in Netlify dashboard)
 // For local development, uses the local server
 // For production on Netlify, set VITE_API_BASE_URL to your Render backend URL
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://fincomms-api.46-62-134-239.sslip.io';
 
 // Token management
-let authToken: string | null = localStorage.getItem('authToken');
-
-export const setAuthToken = (token: string | null) => {
-  authToken = token;
-  if (token) {
-    localStorage.setItem('authToken', token);
   } else {
     localStorage.removeItem('authToken');
   }
@@ -33,10 +27,16 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkError: any) {
+    console.error('Network error:', networkError);
+    throw new Error(`Network error: ${networkError.message || 'Unable to connect to server'}`);
+  }
 
   if (response.status === 401) {
     // Token expired or invalid
@@ -46,7 +46,14 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    const errorText = await response.text();
+    let error;
+    try {
+      error = JSON.parse(errorText);
+    } catch {
+      console.error('Failed to parse error response:', errorText);
+      error = { error: errorText || 'Unknown error' };
+    }
     throw new Error(error.error || error.message || 'Request failed');
   }
 
