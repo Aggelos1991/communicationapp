@@ -23,6 +23,7 @@ function formatDateForMySQL(date: string | Date | undefined): string | null {
 
 /**
  * Validate workflow stage transition
+ * Note: Backward transitions are allowed to support the "Revert" feature
  */
 function validateStageTransition(
   flowType: FlowType,
@@ -31,17 +32,14 @@ function validateStageTransition(
 ): void {
   const stages = flowType === 'MISSING_INVOICE' ? MISSING_INVOICE_STAGES : PO_PENDING_STAGES;
 
-  const currentIndex = stages.indexOf(currentStage as any);
   const newIndex = stages.indexOf(newStage as any);
 
   if (newIndex === -1) {
     throw new Error(`Invalid stage "${newStage}" for flow type ${flowType}`);
   }
 
-  // Allow moving forward or staying in same stage, but not backward
-  if (newIndex < currentIndex) {
-    throw new Error(`Cannot move backwards from "${currentStage}" to "${newStage}"`);
-  }
+  // Allow any valid stage transition (forward, backward, or same)
+  // Backward transitions are needed for the "Revert to previous stage" feature
 }
 
 /**
@@ -186,7 +184,10 @@ export async function updateInvoice(
     'current_stage',
     'status_detail',
     'payment_status',
-    'submission_timestamp'
+    'submission_timestamp',
+    'payment_blocked',
+    'block_reason',
+    'block_attachment'
   ];
 
   allowedFields.forEach(field => {

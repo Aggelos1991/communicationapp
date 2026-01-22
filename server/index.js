@@ -48,9 +48,17 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Body parsing - increased limit for compressed file attachments
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+// Body parsing - increased limit for compressed file attachments (10MB)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Handle payload too large errors explicitly
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Payload too large. Maximum size is 10MB.' });
+  }
+  next(err);
+});
 
 // Serve uploaded files with proper CORS headers for downloads
 app.use('/uploads', (req, res, next) => {
