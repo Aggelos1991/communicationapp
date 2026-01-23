@@ -518,19 +518,16 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
               <th className="px-6 py-4">Entity</th>
               <th className="px-6 py-4">Invoice #</th>
               <th className="px-6 py-4">Vendor</th>
-              <th className="px-6 py-4">PO Owner</th>
-              <th className="px-6 py-4">Detail</th>
               <th className="px-6 py-4">Amount</th>
               <th className="px-6 py-4">Status</th>
               {activeView === 'RECON' && <th className="px-6 py-4 text-center">Payment</th>}
-              <th className="px-6 py-4 text-center">Docs</th>
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
             {filteredInvoices.length === 0 ? (
               <tr>
-                <td colSpan={(onBulkDelete || onBulkUpdateStage || onBulkUpdatePaymentBlocked) ? (activeView === 'RECON' ? 12 : 11) : (activeView === 'RECON' ? 11 : 10)} className="px-6 py-12 text-center text-slate-400 italic">
+                <td colSpan={(onBulkDelete || onBulkUpdateStage || onBulkUpdatePaymentBlocked) ? (activeView === 'RECON' ? 9 : 8) : (activeView === 'RECON' ? 8 : 7)} className="px-6 py-12 text-center text-slate-400 italic">
                   {hasActiveFilters ? 'No invoices match the selected filters.' : 'No invoices found in this queue.'}
                 </td>
               </tr>
@@ -579,27 +576,6 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                     </td>
                     <td className="px-6 py-4 text-slate-200">
                       {invoice.vendor}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {invoice.poCreator ? (
-                        <div className="flex items-center gap-1.5 text-orange-200 bg-orange-950/40 px-2 py-1 rounded border border-orange-900/30 w-fit text-xs font-medium">
-                           <UserCircle size={12} className="text-orange-400" aria-hidden="true" /> {invoice.poCreator}
-                        </div>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {invoice.statusDetail && invoice.statusDetail !== 'NONE' ? (
-                        <span className={clsx(
-                          "px-2 py-0.5 rounded text-[10px] font-bold uppercase border tracking-tight",
-                          invoice.statusDetail === 'WITHOUT PO' ? "bg-red-950/40 text-red-400 border-red-900/40" : "bg-blue-950/40 text-blue-400 border-blue-900/40"
-                        )}>
-                          {invoice.statusDetail}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-slate-100 whitespace-nowrap font-mono font-semibold">
                       {invoice.amount ? 
@@ -677,20 +653,6 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                         </div>
                       </td>
                     )}
-                    <td className="px-6 py-4 text-center">
-                      {invoice.sharepointUrl && (
-                        <a 
-                          href={invoice.sharepointUrl} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="text-brand-400 hover:text-brand-300 p-1.5 bg-brand-950/30 rounded-lg border border-brand-900/30 transition-all inline-block hover:scale-110 active:scale-95"
-                          onClick={(e) => e.stopPropagation()}
-                          title="View on SharePoint"
-                        >
-                          <LinkIcon size={14} />
-                        </a>
-                      )}
-                    </td>
                     <td className="px-6 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
                         {onRevertStage && canRevert(invoice) && (
