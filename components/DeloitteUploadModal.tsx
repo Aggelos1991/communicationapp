@@ -91,6 +91,10 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
           const row = jsonData[i];
           if (!row || row.length === 0) continue;
 
+          // Column A (index 0) - skip rows where this is empty (filter criteria)
+          const colA = row[0] ? String(row[0]).trim() : '';
+          if (!colA) continue;
+
           const entity = row[1] ? String(row[1]).trim() : '';      // Column B - Entity
           const vendor = row[2] ? String(row[2]).trim() : '';       // Column C - Vendor Name
           const invNum = row[11] ? String(row[11]).trim() : '';     // Column L - Invoice Number
@@ -99,12 +103,6 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
           // Skip empty rows (need at least Invoice Number)
           if (!invNum) continue;
 
-          // Check for duplicates
-          if (existingInvoiceNumbers.has(invNum)) {
-            duplicates.push(invNum);
-            continue;
-          }
-
           // Parse amount - handle negative values and various formats
           let parsedAmount: number | undefined;
           if (amount !== undefined && amount !== null && amount !== '') {
@@ -112,6 +110,15 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
             if (!isNaN(numVal)) {
               parsedAmount = Math.abs(numVal); // Use absolute value
             }
+          }
+
+          // Skip rows with small amounts (less than 6 EUR)
+          if (parsedAmount !== undefined && parsedAmount < 6) continue;
+
+          // Check for duplicates
+          if (existingInvoiceNumbers.has(invNum)) {
+            duplicates.push(invNum);
+            continue;
           }
 
           validRows.push({
