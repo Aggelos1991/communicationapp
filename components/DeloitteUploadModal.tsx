@@ -65,10 +65,16 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Look for "Analysis" sheet first, then fall back to first sheet
+        const analysisSheetName = workbook.SheetNames.find(name =>
+          name.toLowerCase().includes('analysis')
+        );
+        const sheetName = analysisSheetName || workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
 
         // Get raw data with header row
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
 
         // Deloitte format column mapping (0-indexed):
         // Column B (index 1) = Entity
