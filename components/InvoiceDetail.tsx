@@ -96,7 +96,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
   const flowStages = FLOW_CONFIG[invoice.flowType];
   const currentStageIndex = flowStages.indexOf(invoice.currentStage);
 
-  const isFlowHidden = invoice.source === 'MANUAL' || invoice.source === 'EXCEL';
+  const isFlowHidden = invoice.source === 'MANUAL';
 
   // Check if invoice can be reverted (not at initial stage)
   const canRevert = currentStageIndex > 0;
