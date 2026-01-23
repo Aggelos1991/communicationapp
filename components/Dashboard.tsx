@@ -14,29 +14,54 @@ interface DashboardProps {
 const StatCard = ({ title, value, subValue, icon: Icon, colorClass, delay, gradient }: any) => (
   <div
     className={clsx(
-      "relative overflow-hidden rounded-3xl border border-slate-700/30 p-7 backdrop-blur-xl transition-all hover:scale-[1.03] hover:-translate-y-1 duration-500 group animate-in fade-in slide-in-from-bottom-6 fill-mode-forwards shadow-xl shadow-black/10 hover:shadow-2xl hover:shadow-black/20",
+      "relative overflow-hidden rounded-3xl border border-slate-700/30 p-7 backdrop-blur-xl group animate-in fade-in slide-in-from-bottom-6 fill-mode-forwards shadow-xl shadow-black/10 cursor-pointer card-3d",
       gradient || "bg-gradient-to-br from-slate-900/80 to-slate-800/60"
     )}
-    style={{ animationDelay: `${delay}ms` }}
+    style={{
+      animationDelay: `${delay}ms`,
+      transformStyle: 'preserve-3d',
+      perspective: '1000px'
+    }}
+    onMouseMove={(e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const rotateX = (y - centerY) / 15;
+      const rotateY = (centerX - x) / 15;
+      e.currentTarget.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(10px) scale(1.02)`;
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px) scale(1)';
+    }}
   >
-    {/* Glow effect */}
-    <div className={clsx("absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl blur-xl", colorClass.replace('text-', 'bg-').concat('/10'))} />
+    {/* Animated glow effect */}
+    <div className={clsx("absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 rounded-3xl blur-2xl scale-110", colorClass.replace('text-', 'bg-').concat('/20'))} />
 
-    {/* Background icon */}
-    <div className={clsx("absolute -top-6 -right-6 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-all transform group-hover:scale-125 group-hover:rotate-12 duration-700", colorClass)}>
-      <Icon size={140} strokeWidth={1} />
+    {/* Shine effect on hover */}
+    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
     </div>
 
-    <div className="relative z-10">
-      <div className={clsx("inline-flex p-3.5 rounded-2xl mb-5 ring-1 ring-inset ring-white/10 shadow-lg transition-transform group-hover:scale-110 duration-300", colorClass.replace('text-', 'bg-').concat('/20'))}>
-        <Icon size={26} className={colorClass} />
+    {/* Background icon with 3D depth */}
+    <div
+      className={clsx("absolute -top-6 -right-6 p-4 opacity-[0.03] group-hover:opacity-[0.1] transition-all duration-700", colorClass)}
+      style={{ transform: 'translateZ(-20px)' }}
+    >
+      <Icon size={140} strokeWidth={1} className="group-hover:scale-125 group-hover:rotate-12 transition-all duration-700" />
+    </div>
+
+    <div className="relative z-10" style={{ transform: 'translateZ(30px)' }}>
+      <div className={clsx("inline-flex p-3.5 rounded-2xl mb-5 ring-1 ring-inset ring-white/10 shadow-lg transition-all duration-500 group-hover:scale-110 group-hover:shadow-2xl", colorClass.replace('text-', 'bg-').concat('/20'))}>
+        <Icon size={26} className={clsx(colorClass, "transition-all duration-500 group-hover:drop-shadow-glow")} />
       </div>
-      <h3 className="text-5xl font-black text-white tracking-tighter mb-2 tabular-nums">{value}</h3>
+      <h3 className="text-5xl font-black text-white tracking-tighter mb-2 tabular-nums transition-all duration-300 group-hover:scale-105 origin-left">{value}</h3>
       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">{title}</p>
       {subValue && (
         <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-700/30">
           <div className="h-1.5 flex-1 bg-slate-800/80 rounded-full overflow-hidden">
-            <div className={clsx("h-full rounded-full transition-all duration-1000 ease-out", colorClass.replace('text-', 'bg-'))} style={{ width: '65%' }}></div>
+            <div className={clsx("h-full rounded-full transition-all duration-1000 ease-out group-hover:shadow-lg", colorClass.replace('text-', 'bg-'))} style={{ width: '65%' }}></div>
           </div>
           <p className="text-[10px] font-mono text-slate-500 whitespace-nowrap font-bold">{subValue}</p>
         </div>
@@ -135,31 +160,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvo
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
 
-      {/* Dynamic Header */}
+      {/* Dynamic Header with 3D effects */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-10 border-b border-slate-800/30">
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
-             <div className="relative">
-               <div className="absolute inset-0 bg-brand-500 rounded-2xl blur-xl opacity-40" />
-               <div className="relative p-3.5 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl shadow-2xl shadow-brand-900/40">
-                 <Activity className="text-white" size={28} />
+          <div className="flex items-center gap-4 group">
+             <div className="relative" style={{ transformStyle: 'preserve-3d' }}>
+               <div className="absolute inset-0 bg-brand-500 rounded-2xl blur-xl opacity-40 group-hover:opacity-70 animate-pulse-glow" />
+               <div
+                 className="relative p-3.5 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl shadow-2xl shadow-brand-900/40 transition-transform duration-500 group-hover:scale-110"
+                 style={{ transform: 'translateZ(20px)' }}
+               >
+                 <Activity className="text-white animate-pulse" size={28} />
                </div>
              </div>
              <div>
-               <h2 className="text-4xl font-black bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent tracking-tight">Command Center</h2>
+               <h2 className="text-4xl font-black bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent tracking-tight bg-size-200 animate-gradient-x">Command Center</h2>
                <p className="text-slate-500 font-bold text-sm uppercase tracking-[0.2em] mt-1">Financial Operations Dashboard</p>
              </div>
           </div>
         </div>
-        <div className="flex items-center gap-6 bg-slate-900/50 px-6 py-4 rounded-2xl border border-slate-800/50 backdrop-blur-sm">
+        <div
+          className="flex items-center gap-6 bg-slate-900/50 px-6 py-4 rounded-2xl border border-slate-800/50 backdrop-blur-sm hover:bg-slate-800/50 transition-all duration-500 group neon-glow"
+          style={{
+            transformStyle: 'preserve-3d',
+            transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(1000px) rotateY(-3deg) translateZ(10px)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(1000px) rotateY(0deg) translateZ(0px)'}
+        >
           <div className="text-right">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Pipeline Value</p>
-            <p className="text-3xl font-black text-white tabular-nums">{formatEuro(stats.totalValue)}</p>
+            <p className="text-3xl font-black text-white tabular-nums group-hover:scale-105 transition-transform duration-300">{formatEuro(stats.totalValue)}</p>
           </div>
           <div className="w-px h-12 bg-slate-700/50" />
           <div className="text-right">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Active Invoices</p>
-            <p className="text-3xl font-black text-emerald-400 tabular-nums">{stats.active}</p>
+            <p className="text-3xl font-black text-emerald-400 tabular-nums group-hover:scale-105 transition-transform duration-300">{stats.active}</p>
           </div>
         </div>
       </div>

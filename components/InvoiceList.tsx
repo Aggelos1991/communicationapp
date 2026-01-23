@@ -264,7 +264,10 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
   const hasActiveFilters = Object.values(filters).some(f => f !== 'ALL');
 
   return (
-    <div className="bg-gradient-to-b from-slate-800/80 to-slate-900/80 rounded-3xl border border-slate-700/50 overflow-hidden shadow-2xl shadow-black/20 backdrop-blur-xl">
+    <div
+      className="bg-gradient-to-b from-slate-800/80 to-slate-900/80 rounded-3xl border border-slate-700/50 overflow-hidden shadow-2xl shadow-black/20 backdrop-blur-xl"
+      style={{ transformStyle: 'preserve-3d' }}
+    >
       {/* Filter Toggle and Controls */}
       <div className="bg-slate-900/40 border-b border-slate-700/50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -552,13 +555,25 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                   <tr
                     key={invoice.id}
                     className={clsx(
-                      "group cursor-pointer transition-all duration-200",
+                      "group cursor-pointer transition-all duration-300 row-3d",
                       selectedIds.has(invoice.id)
                         ? "bg-brand-900/30 hover:bg-brand-900/40"
                         : "hover:bg-slate-800/60"
                     )}
                     onClick={() => onSelectInvoice(invoice)}
-                    style={{ animationDelay: `${index * 30}ms` }}
+                    style={{
+                      animationDelay: `${index * 30}ms`,
+                      transformStyle: 'preserve-3d',
+                      transition: 'all 0.3s cubic-bezier(0.23, 1, 0.32, 1)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateX(8px) scale(1.005)';
+                      e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateX(0) scale(1)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                   >
                     {(onBulkDelete || onBulkUpdateStage || onBulkUpdatePaymentBlocked) && (
                       <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>

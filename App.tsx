@@ -568,26 +568,42 @@ const App: React.FC = () => {
       'PAYMENT': 'from-violet-600 to-purple-600',
       'ALL': 'from-slate-600 to-slate-500'
     };
+    const glowMap: Record<TeamView, string> = {
+      'RECON': 'shadow-emerald-500/30',
+      'AP': 'shadow-brand-500/30',
+      'PAYMENT': 'shadow-violet-500/30',
+      'ALL': 'shadow-slate-500/20'
+    };
 
     return (
       <button
         onClick={() => setActiveView(view)}
         className={clsx(
-          "group relative flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-bold uppercase tracking-wide transition-all duration-300 overflow-hidden",
+          "group relative flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-bold uppercase tracking-wide transition-all duration-500 overflow-hidden",
           isActive
-            ? `bg-gradient-to-r ${gradientMap[view]} text-white shadow-xl`
+            ? `bg-gradient-to-r ${gradientMap[view]} text-white shadow-xl ${glowMap[view]}`
             : "bg-transparent text-slate-400 hover:text-white hover:bg-slate-800/60"
         )}
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: isActive ? 'translateZ(10px) scale(1.02)' : 'translateZ(0px)',
+          transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
+        }}
       >
-        {isActive && <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />}
-        <Icon size={16} className={clsx("relative z-10 transition-transform duration-300", isActive && "scale-110")} />
+        {isActive && (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-white/5 to-transparent animate-shimmer" />
+            <div className="absolute inset-0 opacity-50 blur-xl bg-gradient-to-r from-white/20 to-transparent" style={{ transform: 'translateZ(-10px)' }} />
+          </>
+        )}
+        <Icon size={16} className={clsx("relative z-10 transition-all duration-500", isActive ? "scale-110 drop-shadow-glow" : "group-hover:scale-105 group-hover:rotate-6")} />
         <span className="relative z-10">{label}</span>
         <span className={clsx(
           "relative z-10 ml-1 text-xs px-2.5 py-1 rounded-lg font-mono font-bold transition-all duration-300",
           isActive
-            ? "bg-white/20 text-white"
+            ? "bg-white/20 text-white shadow-inner"
             : "bg-slate-800/80 text-slate-500 group-hover:bg-slate-700 group-hover:text-slate-300"
-        )}>
+        )} style={{ transform: isActive ? 'translateZ(5px)' : 'translateZ(0)' }}>
           {viewCounts[view]}
         </span>
       </button>
@@ -623,26 +639,28 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50 font-sans selection:bg-brand-500/30">
-      {/* Animated background gradient */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-600/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-emerald-600/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-violet-600/5 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50 font-sans selection:bg-brand-500/30" style={{ perspective: '1500px' }}>
+      {/* Animated 3D background with floating orbs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ transformStyle: 'preserve-3d' }}>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-600/15 rounded-full blur-3xl animate-float-slow" style={{ transform: 'translateZ(-100px)' }} />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl animate-float-medium" style={{ transform: 'translateZ(-150px)' }} />
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-violet-600/10 rounded-full blur-3xl animate-float-fast" style={{ transform: 'translateZ(-80px)' }} />
+        <div className="absolute top-1/4 left-1/3 w-64 h-64 bg-cyan-600/5 rounded-full blur-3xl animate-float-reverse" style={{ transform: 'translateZ(-200px)' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-pink-600/5 rounded-full blur-3xl animate-float-slow" style={{ transform: 'translateZ(-120px)' }} />
       </div>
 
-      <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur-2xl border-b border-slate-800/50 shadow-2xl shadow-black/20">
+      <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur-2xl border-b border-slate-800/50 shadow-2xl shadow-black/20" style={{ transformStyle: 'preserve-3d' }}>
         <div className="max-w-[1600px] mx-auto px-6 h-[70px] flex items-center justify-between">
           <div className="flex items-center gap-10">
-            <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setCurrentPage('dashboard')}>
-              <div className="relative">
-                <div className="absolute inset-0 bg-brand-500 rounded-xl blur-lg opacity-50 group-hover:opacity-80 transition-opacity" />
-                <div className="relative bg-gradient-to-br from-brand-500 to-brand-700 p-2.5 rounded-xl shadow-lg">
-                  <Activity className="text-white" size={22} />
+            <div className="flex items-center gap-3 group cursor-pointer transition-transform duration-500 hover:scale-105" onClick={() => setCurrentPage('dashboard')} style={{ transformStyle: 'preserve-3d' }}>
+              <div className="relative transition-transform duration-500 group-hover:rotate-y-12" style={{ transformStyle: 'preserve-3d' }}>
+                <div className="absolute inset-0 bg-brand-500 rounded-xl blur-lg opacity-50 group-hover:opacity-100 transition-all duration-500" />
+                <div className="relative bg-gradient-to-br from-brand-500 to-brand-700 p-2.5 rounded-xl shadow-lg transition-transform duration-500 group-hover:translate-z-4" style={{ transform: 'translateZ(0px)', transition: 'transform 0.5s' }}>
+                  <Activity className="text-white transition-transform duration-500 group-hover:scale-110" size={22} />
                 </div>
               </div>
-              <div className="hidden md:block">
-                <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">FinComms</h1>
+              <div className="hidden md:block transition-transform duration-300 group-hover:translate-x-1">
+                <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent bg-size-200 animate-gradient-x">FinComms</h1>
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em] -mt-0.5">Invoice Management</p>
               </div>
             </div>
@@ -696,19 +714,51 @@ const App: React.FC = () => {
                   </div>
                   {activeView === 'RECON' && (
                     <>
-                      <button onClick={() => setIsManualEntryModalOpen(true)} className="group bg-slate-800/80 hover:bg-slate-700 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider border border-slate-700/50 shadow-xl transition-all duration-300 flex items-center gap-2 hover:scale-[1.02] hover:shadow-2xl">
-                        <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" /> Add Manual
+                      <button
+                        onClick={() => setIsManualEntryModalOpen(true)}
+                        className="group bg-slate-800/80 hover:bg-slate-700 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider border border-slate-700/50 shadow-xl transition-all duration-500 flex items-center gap-2"
+                        style={{
+                          transformStyle: 'preserve-3d',
+                          transform: 'perspective(500px) rotateX(0deg)',
+                          transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(-5deg) translateY(-2px) scale(1.02)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(0deg)'}
+                      >
+                        <Plus size={16} className="group-hover:rotate-180 transition-transform duration-500" /> Add Manual
                       </button>
-                      <button onClick={() => setIsDeloitteUploadOpen(true)} className="group relative overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-emerald-900/30 transition-all duration-300 flex items-center gap-2 hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-900/40">
-                        <Upload size={16} className="group-hover:-translate-y-0.5 transition-transform duration-300" /> Deloitte Upload
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                      <button
+                        onClick={() => setIsDeloitteUploadOpen(true)}
+                        className="group relative overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-emerald-500/25 transition-all duration-500 flex items-center gap-2"
+                        style={{
+                          transformStyle: 'preserve-3d',
+                          transform: 'perspective(500px) rotateX(0deg)',
+                          transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(-5deg) translateY(-3px) scale(1.03)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(0deg)'}
+                      >
+                        <Upload size={16} className="group-hover:-translate-y-1 group-hover:scale-110 transition-transform duration-500" /> Deloitte Upload
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-t from-white/10 to-transparent transition-opacity duration-500" />
                       </button>
                     </>
                   )}
                   {activeView === 'AP' && (
-                    <button onClick={() => setIsUploadModalAPOpen(true)} className="group relative overflow-hidden bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-orange-900/30 transition-all duration-300 flex items-center gap-2 hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-900/40">
-                      <Upload size={16} className="group-hover:-translate-y-0.5 transition-transform duration-300" /> Import Excel
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                    <button
+                      onClick={() => setIsUploadModalAPOpen(true)}
+                      className="group relative overflow-hidden bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-orange-500/25 transition-all duration-500 flex items-center gap-2"
+                      style={{
+                        transformStyle: 'preserve-3d',
+                        transform: 'perspective(500px) rotateX(0deg)',
+                        transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(-5deg) translateY(-3px) scale(1.03)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(0deg)'}
+                    >
+                      <Upload size={16} className="group-hover:-translate-y-1 group-hover:scale-110 transition-transform duration-500" /> Import Excel
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-t from-white/10 to-transparent transition-opacity duration-500" />
                     </button>
                   )}
                 </div>
