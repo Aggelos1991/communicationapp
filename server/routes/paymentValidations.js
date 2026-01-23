@@ -19,15 +19,25 @@ router.get('/invoice/:invoiceId', async (req, res, next) => {
       return res.json(null);
     }
 
-    // Fetch attachments for this payment validation
+    // Fetch attachments for this payment validation (compressed format)
     const [attachments] = await db.query(
-      'SELECT id, name, url, type, size, created_at FROM attachments WHERE payment_validation_id = ? ORDER BY created_at ASC',
+      'SELECT id, name, data, mime_type, original_size, compressed_size, created_at FROM attachments WHERE payment_validation_id = ? ORDER BY created_at ASC',
       [validations[0].id]
     );
 
+    // Map to frontend format
+    const formattedAttachments = attachments.map(att => ({
+      id: att.id,
+      name: att.name,
+      mimeType: att.mime_type,
+      data: att.data,
+      originalSize: att.original_size,
+      compressedSize: att.compressed_size
+    }));
+
     res.json({
       ...validations[0],
-      attachments
+      attachments: formattedAttachments
     });
   } catch (error) {
     next(error);
@@ -73,31 +83,21 @@ router.post('/', async (req, res, next) => {
       VALUES (?, ?, ?, ?, ?)
     `, [validationId, invoice_id, validated_by, req.user.id, comments || null]);
 
-    // Link attachments to this payment validation if any were uploaded
+    // Link compressed attachments to this payment validation if any were uploaded
     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
       for (const file of attachments) {
-        // Determine attachment type from mimetype or extension
-        let attachmentType = 'OTHER';
-        const mimetype = file.mimetype || '';
-        if (mimetype.startsWith('image/')) {
-          attachmentType = 'IMAGE';
-        } else if (mimetype === 'application/pdf') {
-          attachmentType = 'PDF';
-        } else if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) {
-          attachmentType = 'EXCEL';
-        }
-
-        const attachmentId = uuidv4();
+        const attachmentId = file.id || uuidv4();
         await db.query(`
-          INSERT INTO attachments (id, payment_validation_id, name, url, type, size)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO attachments (id, payment_validation_id, name, data, mime_type, original_size, compressed_size)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
           attachmentId,
           validationId,
-          file.originalName || file.filename,
-          file.path,
-          attachmentType,
-          file.size || 0
+          file.name,
+          file.data,
+          file.mimeType,
+          file.originalSize || 0,
+          file.compressedSize || 0
         ]);
       }
     }

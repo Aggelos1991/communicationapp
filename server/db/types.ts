@@ -3,13 +3,15 @@ export type InvoiceSource = 'MANUAL' | 'EXCEL' | 'RECON';
 export type StatusDetail = 'WITHOUT PO' | 'EXR PENDING' | 'NONE';
 export type PaymentStatus = 'NONE' | 'REQUESTED' | 'PAID';
 export type EvidenceType = 'NOTE' | 'EMAIL';
-export type AttachmentType = 'IMAGE' | 'PDF' | 'EXCEL' | 'OTHER';
+// Attachments are now compressed (gzip) and stored as base64 in JSON columns
 export type TeamView = 'RECON' | 'AP' | 'PAYMENT' | 'ALL';
 
 // Workflow stages
 export const MISSING_INVOICE_STAGES = [
   'Invoice Missing',
   'Sent to AP Processing',
+  'Sent to Vendor',
+  'PO Pending',
   'PO Created',
   'Posted',
   'Closed'
@@ -63,6 +65,9 @@ export interface Invoice {
   status_detail: StatusDetail;
   submission_timestamp: Date | null;
   payment_status: PaymentStatus;
+  payment_blocked: boolean;
+  block_reason: string | null;
+  block_attachment: string | null; // JSON string of compressed attachment
   created_at: Date;
   updated_at: Date;
   created_by: string;
@@ -89,14 +94,23 @@ export interface Evidence {
   created_by_id: string | null;
 }
 
+// Compressed attachment stored as JSON (gzip + base64)
+export interface CompressedAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  data: string; // base64 encoded gzip compressed data
+  originalSize: number;
+  compressedSize: number;
+}
+
+// Legacy attachment table (for migration compatibility)
 export interface Attachment {
   id: string;
   evidence_id: string | null;
   payment_validation_id: string | null;
   name: string;
-  url: string;
-  type: AttachmentType;
-  size: number;
+  data: string | null; // JSON string of CompressedAttachment
   created_at: Date;
 }
 

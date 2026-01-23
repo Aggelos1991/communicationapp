@@ -14,17 +14,15 @@ const getBadgeStyle = (stage: FlowStage) => {
   if (stage === FlowStage.MISSING_INVOICE_SENT_TO_AP) return 'bg-purple-900/30 text-purple-400 border-purple-900/50';
   if (stage === FlowStage.MISSING_INVOICE_SENT_TO_VENDOR) return 'bg-amber-900/30 text-amber-400 border-amber-900/50';
   if (stage === FlowStage.PO_PENDING_SENT) return 'bg-purple-900/30 text-purple-400 border-purple-900/50';
-  
-  // Combined check for Reconciled stage in both flows.
-  if (stage === FlowStage.MISSING_INVOICE_RECONCILED) {
-    return 'bg-teal-900/30 text-teal-400 border-teal-900/50';
-  }
-  
+  if (stage === FlowStage.MISSING_INVOICE_PO_PENDING) return 'bg-orange-900/30 text-orange-400 border-orange-900/50';
+  if (stage === FlowStage.MISSING_INVOICE_PO_CREATED) return 'bg-indigo-900/30 text-indigo-400 border-indigo-900/50';
+  if (stage === FlowStage.PO_PENDING_CREATED) return 'bg-indigo-900/30 text-indigo-400 border-indigo-900/50';
+
   if (stage.includes('Received')) return 'bg-blue-900/30 text-blue-400 border-blue-900/50';
   if (stage.includes('Pending')) return 'bg-orange-900/30 text-orange-400 border-orange-900/50';
   if (stage.includes('Created')) return 'bg-indigo-900/30 text-indigo-400 border-indigo-900/50';
   if (stage.includes('Posted')) return 'bg-emerald-900/30 text-emerald-400 border-emerald-900/50';
-  
+
   return 'bg-slate-800 text-slate-300';
 };
 

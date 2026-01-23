@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, X, Bot } from 'lucide-react';
+import { Sparkles, Send, X, Bot, Copy, Check } from 'lucide-react';
 import { askAssistant } from '../services/openaiService';
 import { Invoice } from '../types';
 import { clsx } from 'clsx';
@@ -14,12 +14,28 @@ interface Message {
 }
 
 // Format message text with basic styling for professional display
-const FormatMessage: React.FC<{ text: string }> = ({ text }) => {
+const FormatMessage: React.FC<{ text: string; onCopyEmail?: (email: string) => void }> = ({ text, onCopyEmail }) => {
   const lines = text.split('\n');
+
+  // Check if this is an email (contains [EMAIL] marker or Subject: line)
+  const isEmail = text.includes('[EMAIL]') || text.toLowerCase().includes('subject:');
+  const emailContent = text.replace('[EMAIL]', '').trim();
 
   return (
     <div className="space-y-0.5">
+      {isEmail && onCopyEmail && (
+        <button
+          onClick={() => onCopyEmail(emailContent)}
+          className="mb-3 w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold py-2 px-4 rounded-lg transition-all"
+        >
+          <Copy size={14} />
+          Copy Email to Clipboard
+        </button>
+      )}
       {lines.map((line, i) => {
+        // Skip [EMAIL] marker
+        if (line.trim() === '[EMAIL]') return null;
+
         // Bold text between **
         const formatBold = (str: string) => {
           const parts = str.split(/\*\*(.*?)\*\*/g);
@@ -94,10 +110,21 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ invoices }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', text: "Hello! I'm your **Finance Data Analyst**.\n\n**What I can do:**\n• Analyze invoice data & provide summaries\n• Generate reports by vendor, entity, or status\n• Write professional emails in **English** or **Spanish**\n\n**Try asking:**\n• \"Show me a summary of all invoices\"\n• \"Write an email to vendor requesting invoice copy\"\n• \"Escribe un correo en español para solicitar documentación\"" }
+    { role: 'assistant', text: "Hello! I'm your **Finance Data Analyst**.\n\n**What I can do:**\n• Analyze specific invoices, vendors, or entities\n• Generate reports and summaries\n• Write professional emails in **English** or **Spanish**\n\n**Try asking:**\n• \"Tell me about invoice INV123\"\n• \"Show IPP invoices only\"\n• \"Write an email requesting invoice copy\"\n• \"Escribe un correo en español\"" }
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleCopyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   useEffect(() => {
     if(isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -158,7 +185,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ invoices }) => {
                 ? "bg-brand-600 text-white rounded-br-none font-medium"
                 : "bg-slate-900 text-slate-200 rounded-bl-none border border-slate-800"
             )}>
-              {m.role === 'assistant' ? <FormatMessage text={m.text} /> : m.text}
+              {m.role === 'assistant' ? <FormatMessage text={m.text} onCopyEmail={handleCopyEmail} /> : m.text}
             </div>
           </div>
         ))}

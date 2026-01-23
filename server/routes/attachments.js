@@ -45,40 +45,61 @@ const upload = multer({
   }
 });
 
-// Get attachments for evidence
+// Get attachments for evidence (compressed format)
 router.get('/evidence/:evidenceId', async (req, res, next) => {
   try {
     const [attachments] = await db.query(
-      'SELECT * FROM attachments WHERE evidence_id = ? ORDER BY created_at ASC',
+      'SELECT id, name, data, mime_type, original_size, compressed_size, created_at FROM attachments WHERE evidence_id = ? ORDER BY created_at ASC',
       [req.params.evidenceId]
     );
 
-    res.json(attachments);
+    // Map to frontend format
+    const formattedAttachments = attachments.map(att => ({
+      id: att.id,
+      name: att.name,
+      mimeType: att.mime_type,
+      data: att.data,
+      originalSize: att.original_size,
+      compressedSize: att.compressed_size
+    }));
+
+    res.json(formattedAttachments);
   } catch (error) {
     next(error);
   }
 });
 
-// Get attachments for payment validation
+// Get attachments for payment validation (compressed format)
 router.get('/payment-validation/:paymentValidationId', async (req, res, next) => {
   try {
     const [attachments] = await db.query(
-      'SELECT * FROM attachments WHERE payment_validation_id = ? ORDER BY created_at ASC',
+      'SELECT id, name, data, mime_type, original_size, compressed_size, created_at FROM attachments WHERE payment_validation_id = ? ORDER BY created_at ASC',
       [req.params.paymentValidationId]
     );
 
-    res.json(attachments);
+    // Map to frontend format
+    const formattedAttachments = attachments.map(att => ({
+      id: att.id,
+      name: att.name,
+      mimeType: att.mime_type,
+      data: att.data,
+      originalSize: att.original_size,
+      compressedSize: att.compressed_size
+    }));
+
+    res.json(formattedAttachments);
   } catch (error) {
     next(error);
   }
 });
 
-// Upload attachment
-router.post('/upload', upload.single('file'), async (req, res, next) => {
+// Upload compressed attachment (JSON data from frontend)
+router.post('/upload', async (req, res, next) => {
   try {
     // Accept both snake_case and camelCase
     const evidence_id = req.body.evidence_id || req.body.evidenceId;
     const payment_validation_id = req.body.payment_validation_id || req.body.paymentValidationId;
+    const attachment = req.body.attachment;
 
     // Must have exactly one parent
     if ((!evidence_id && !payment_validation_id) || (evidence_id && payment_validation_id)) {
@@ -87,15 +108,14 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+    if (!attachment || !attachment.data) {
+      return res.status(400).json({ error: 'No attachment data provided' });
     }
 
     // Verify parent exists
     if (evidence_id) {
       const [evidence] = await db.query('SELECT id FROM evidence WHERE id = ?', [evidence_id]);
       if (evidence.length === 0) {
-        await fs.unlink(req.file.path); // Clean up uploaded file
         return res.status(404).json({ error: 'Evidence not found' });
       }
     }
@@ -103,66 +123,55 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     if (payment_validation_id) {
       const [pv] = await db.query('SELECT id FROM payment_validations WHERE id = ?', [payment_validation_id]);
       if (pv.length === 0) {
-        await fs.unlink(req.file.path);
         return res.status(404).json({ error: 'Payment validation not found' });
       }
     }
 
-    // Determine attachment type
-    let attachmentType = 'OTHER';
-    if (req.file.mimetype.startsWith('image/')) {
-      attachmentType = 'IMAGE';
-    } else if (req.file.mimetype === 'application/pdf') {
-      attachmentType = 'PDF';
-    } else if (req.file.mimetype.includes('excel') || req.file.mimetype.includes('spreadsheet')) {
-      attachmentType = 'EXCEL';
-    }
-
-    const attachmentId = uuidv4();
-    const url = `/uploads/attachments/${req.file.filename}`;
+    const attachmentId = attachment.id || uuidv4();
 
     await db.query(`
-      INSERT INTO attachments (id, evidence_id, payment_validation_id, name, url, type, size)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO attachments (id, evidence_id, payment_validation_id, name, data, mime_type, original_size, compressed_size)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       attachmentId,
       evidence_id || null,
       payment_validation_id || null,
-      req.file.originalname,
-      url,
-      attachmentType,
-      req.file.size
+      attachment.name,
+      attachment.data,
+      attachment.mimeType,
+      attachment.originalSize || 0,
+      attachment.compressedSize || 0
     ]);
 
-    const [created] = await db.query('SELECT * FROM attachments WHERE id = ?', [attachmentId]);
+    const [created] = await db.query(
+      'SELECT id, name, data, mime_type, original_size, compressed_size FROM attachments WHERE id = ?',
+      [attachmentId]
+    );
 
-    res.status(201).json(created[0]);
+    res.status(201).json({
+      id: created[0].id,
+      name: created[0].name,
+      mimeType: created[0].mime_type,
+      data: created[0].data,
+      originalSize: created[0].original_size,
+      compressedSize: created[0].compressed_size
+    });
   } catch (error) {
-    // Clean up file on error
-    if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
-    }
     next(error);
   }
 });
 
-// Delete attachment
+// Delete attachment (compressed data stored in DB, no file to delete)
 router.delete('/:id', async (req, res, next) => {
   try {
     const [attachment] = await db.query(
-      'SELECT url FROM attachments WHERE id = ?',
+      'SELECT id FROM attachments WHERE id = ?',
       [req.params.id]
     );
 
     if (attachment.length === 0) {
       return res.status(404).json({ error: 'Attachment not found' });
     }
-
-    // Delete file from filesystem
-    const filePath = path.join(process.cwd(), attachment[0].url);
-    await fs.unlink(filePath).catch(() => {
-      console.warn('Could not delete file:', filePath);
-    });
 
     // Delete from database
     await db.query('DELETE FROM attachments WHERE id = ?', [req.params.id]);

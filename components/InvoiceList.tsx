@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { Invoice, TeamView, FlowStage, FlowType } from '../types';
-import { FLOW_CONFIG } from '../constants';
+import React, { useState, useMemo, useRef } from 'react';
+import { Invoice, TeamView, FlowStage, FlowType, Attachment } from '../types';
+import { FLOW_CONFIG, TEAM_STAGES } from '../constants';
 import { Badge } from './ui/Badge';
-import { ChevronRight, FileText, MessageSquare, Building2, UserCircle, Clock, Link as LinkIcon, ExternalLink, Trash2, Filter, X, Edit, Ban, CheckCircle, Download, ArrowRight, Send } from 'lucide-react';
+import { ChevronRight, FileText, MessageSquare, Building2, UserCircle, Clock, Link as LinkIcon, ExternalLink, Trash2, Filter, X, Edit, Ban, CheckCircle, Download, ArrowRight, Send, Undo2, Paperclip, Mail, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { exportToExcel } from '../lib/exportExcel';
+import { compressFile, downloadCompressedFile, formatFileSize, MAX_ORIGINAL_SIZE } from '../lib/compression';
 
 interface InvoiceListProps {
   invoices: Invoice[];
@@ -15,9 +16,13 @@ interface InvoiceListProps {
   onTogglePaymentBlocked?: (id: string, blocked: boolean) => void;
   onBulkUpdatePaymentBlocked?: (ids: string[], blocked: boolean) => void;
   onBulkUpdateStage?: (ids: string[], stage: FlowStage) => void;
+  onBulkRequestPayment?: (ids: string[]) => void;
+  onRevertStage?: (id: string) => void;
+  onBulkRevertStage?: (ids: string[]) => void;
+  onUpdateBlockEmail?: (id: string, reason: string, attachment?: Attachment) => void;
 }
 
-export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvoice, onDeleteInvoice, onBulkDelete, activeView, onTogglePaymentBlocked, onBulkUpdatePaymentBlocked, onBulkUpdateStage }) => {
+export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvoice, onDeleteInvoice, onBulkDelete, activeView, onTogglePaymentBlocked, onBulkUpdatePaymentBlocked, onBulkUpdateStage, onBulkRequestPayment, onRevertStage, onBulkRevertStage, onUpdateBlockEmail }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [showBulkStageMenu, setShowBulkStageMenu] = useState(false);
@@ -28,6 +33,19 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
     status: 'ALL',
     statusDetail: 'ALL',
   });
+
+  // Block email modal state
+  const [blockEmailModal, setBlockEmailModal] = useState<{
+    isOpen: boolean;
+    invoiceId: string;
+    invoiceNumber: string;
+    currentReason: string;
+    currentAttachment?: Attachment;
+  } | null>(null);
+  const [reasonInput, setReasonInput] = useState('');
+  const [blockAttachment, setBlockAttachment] = useState<Attachment | null>(null);
+  const [isBlockCompressing, setIsBlockCompressing] = useState(false);
+  const blockFileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleSelection = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -86,13 +104,108 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
     }
   };
 
-  // Get next available stages based on selected invoices
+  const handleRevert = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRevertStage) {
+      onRevertStage(id);
+    }
+  };
+
+  const handleBulkRevert = () => {
+    if (selectedIds.size > 0 && onBulkRevertStage) {
+      onBulkRevertStage(Array.from(selectedIds));
+      setSelectedIds(new Set());
+    }
+  };
+
+  // Open block email modal
+  const openBlockEmailModal = (invoice: Invoice, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBlockEmailModal({
+      isOpen: true,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      currentReason: invoice.blockReason || '',
+      currentAttachment: (invoice as any).blockAttachment
+    });
+    setReasonInput(invoice.blockReason || '');
+    setBlockAttachment((invoice as any).blockAttachment || null);
+  };
+
+  // Handle file selection for block evidence
+  const handleBlockFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_ORIGINAL_SIZE) {
+      alert(`File too large. Maximum size is ${MAX_ORIGINAL_SIZE / 1024 / 1024}MB`);
+      return;
+    }
+
+    setIsBlockCompressing(true);
+    try {
+      const compressed = await compressFile(file);
+      setBlockAttachment({
+        id: `block-${Date.now()}`,
+        name: compressed.originalName,
+        mimeType: compressed.mimeType,
+        data: compressed.data,
+        originalSize: compressed.originalSize,
+        compressedSize: compressed.compressedSize
+      });
+    } catch (error: any) {
+      alert(error.message || 'Failed to compress file');
+    } finally {
+      setIsBlockCompressing(false);
+      if (blockFileInputRef.current) blockFileInputRef.current.value = '';
+    }
+  };
+
+  // Save block email
+  const handleSaveBlockEmail = () => {
+    if (blockEmailModal && onUpdateBlockEmail) {
+      onUpdateBlockEmail(blockEmailModal.invoiceId, reasonInput, blockAttachment || undefined);
+      setBlockEmailModal(null);
+      setReasonInput('');
+      setBlockAttachment(null);
+    }
+  };
+
+  // Check if invoice can be reverted (not at initial stage)
+  const canRevert = (invoice: Invoice): boolean => {
+    const flowStages = invoice.flowType === FlowType.MISSING_INVOICE
+      ? [FlowStage.MISSING_INVOICE_MISSING, FlowStage.MISSING_INVOICE_SENT_TO_VENDOR, FlowStage.MISSING_INVOICE_SENT_TO_AP, FlowStage.MISSING_INVOICE_PO_PENDING, FlowStage.MISSING_INVOICE_POSTED, FlowStage.CLOSED]
+      : [FlowStage.PO_PENDING_RECEIVED, FlowStage.PO_PENDING_SENT, FlowStage.PO_PENDING_CREATED, FlowStage.PO_PENDING_EXR_CREATED, FlowStage.CLOSED];
+
+    const currentIndex = flowStages.indexOf(invoice.currentStage);
+    return currentIndex > 0;
+  };
+
+  // Check if any selected invoices can be reverted
+  const canBulkRevert = (): boolean => {
+    if (selectedIds.size === 0) return false;
+    const selectedInvoices = filteredInvoices.filter(inv => selectedIds.has(inv.id));
+    return selectedInvoices.some(inv => canRevert(inv));
+  };
+
+  // Get next available stages based on selected invoices and current view
   const getAvailableStages = (): { stage: FlowStage; label: string }[] => {
     if (selectedIds.size === 0) return [];
 
     // Get the selected invoices
     const selectedInvoices = filteredInvoices.filter(inv => selectedIds.has(inv.id));
     if (selectedInvoices.length === 0) return [];
+
+    // Get allowed stages for current view
+    const allowedStagesForView: FlowStage[] = [];
+    if (activeView === 'RECON') {
+      allowedStagesForView.push(...TEAM_STAGES.RECON, ...TEAM_STAGES.AP); // RECON can advance to AP stages
+    } else if (activeView === 'AP') {
+      allowedStagesForView.push(...TEAM_STAGES.AP, FlowStage.MISSING_INVOICE_POSTED, FlowStage.CLOSED); // AP can advance to Posted and Closed
+    } else {
+      // For ALL view, allow all stages
+      allowedStagesForView.push(...TEAM_STAGES.RECON, ...TEAM_STAGES.AP, FlowStage.CLOSED);
+    }
 
     // Collect all possible next stages from all selected invoices
     const nextStagesSet = new Set<FlowStage>();
@@ -104,9 +217,11 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
       const currentIndex = flowStages.indexOf(invoice.currentStage as FlowStage);
       if (currentIndex === -1) return;
 
-      // Add all stages after the current one
+      // Add all stages after the current one that are allowed for this view
       for (let i = currentIndex + 1; i < flowStages.length; i++) {
-        nextStagesSet.add(flowStages[i]);
+        if (allowedStagesForView.includes(flowStages[i])) {
+          nextStagesSet.add(flowStages[i]);
+        }
       }
     });
 
@@ -300,6 +415,41 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                 </>
               )}
 
+              {/* Forward to Payment Queue - RECON view only for Closed invoices */}
+              {activeView === 'RECON' && onBulkRequestPayment && filteredInvoices.some(inv => selectedIds.has(inv.id) && inv.currentStage === FlowStage.CLOSED) && (
+                <>
+                  <button
+                    onClick={() => {
+                      if (onBulkRequestPayment) {
+                        const closedIds = Array.from(selectedIds).filter(id => {
+                          const inv = filteredInvoices.find(i => i.id === id);
+                          return inv && inv.currentStage === FlowStage.CLOSED;
+                        });
+                        onBulkRequestPayment(closedIds);
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg"
+                  >
+                    <Send size={14} /> Forward to Payment Queue
+                  </button>
+                  <div className="w-px h-6 bg-slate-600 mx-1"></div>
+                </>
+              )}
+
+              {/* Bulk Revert */}
+              {onBulkRevertStage && canBulkRevert() && (
+                <>
+                  <button
+                    onClick={handleBulkRevert}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Undo2 size={14} /> Revert Stage
+                  </button>
+                  <div className="w-px h-6 bg-slate-600 mx-1"></div>
+                </>
+              )}
+
               {/* Bulk Stage Change */}
               {onBulkUpdateStage && getAvailableStages().length > 0 && (
                 <div className="relative">
@@ -461,28 +611,70 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                     </td>
                     {activeView === 'RECON' && (
                       <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={(e) => handleToggleBlocked(invoice.id, invoice.paymentBlocked, e)}
-                          className={clsx(
-                            "p-2 rounded-lg transition-all flex items-center gap-1.5 mx-auto",
-                            invoice.paymentBlocked
-                              ? "bg-red-900/30 text-red-400 hover:bg-red-900/50 border border-red-900/50"
-                              : "bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-900/50"
-                          )}
-                          title={invoice.paymentBlocked ? "Payment Blocked - Click to unblock" : "Payment Allowed - Click to block"}
-                        >
-                          {invoice.paymentBlocked ? (
-                            <>
-                              <Ban size={14} />
-                              <span className="text-[10px] font-bold uppercase">Blocked</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle size={14} />
-                              <span className="text-[10px] font-bold uppercase">OK</span>
-                            </>
-                          )}
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={(e) => handleToggleBlocked(invoice.id, invoice.paymentBlocked, e)}
+                            className={clsx(
+                              "p-2 rounded-lg transition-all flex items-center gap-1.5",
+                              invoice.paymentBlocked
+                                ? "bg-red-900/30 text-red-400 hover:bg-red-900/50 border border-red-900/50"
+                                : "bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-900/50"
+                            )}
+                            title={invoice.paymentBlocked ? "Payment Blocked - Click to unblock" : "Payment Allowed - Click to block"}
+                          >
+                            {invoice.paymentBlocked ? (
+                              <>
+                                <Ban size={14} />
+                                <span className="text-[10px] font-bold uppercase">Blocked</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle size={14} />
+                                <span className="text-[10px] font-bold uppercase">OK</span>
+                              </>
+                            )}
+                          </button>
+                          {/* Attachment icon - only show when blocked */}
+                          {invoice.paymentBlocked && onUpdateBlockEmail && (() => {
+                            // Parse blockAttachment if it's a string
+                            let att = invoice.blockAttachment;
+                            if (typeof att === 'string' && att) {
+                              try { att = JSON.parse(att); } catch(e) {}
+                            }
+                            const hasAttachment = att && typeof att === 'object' && att.data;
+                            return (
+                              <>
+                                <button
+                                  onClick={(e) => openBlockEmailModal(invoice, e)}
+                                  className={clsx(
+                                    "p-2 rounded-lg transition-all border",
+                                    hasAttachment
+                                      ? "bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 border-emerald-900/50"
+                                      : "bg-slate-800 text-slate-400 hover:bg-slate-700 border-slate-700 animate-pulse"
+                                  )}
+                                  title={hasAttachment ? "View/Edit block evidence" : "Add block evidence (required)"}
+                                >
+                                  <Paperclip size={14} />
+                                </button>
+                                {/* Download icon - only show when has attachment with data */}
+                                {hasAttachment && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (att && att.data) {
+                                        downloadCompressedFile(att.data, att.name, att.mimeType);
+                                      }
+                                    }}
+                                    className="p-2 rounded-lg transition-all border bg-blue-900/30 text-blue-400 hover:bg-blue-900/50 border-blue-900/50"
+                                    title="Download block evidence"
+                                  >
+                                    <Download size={14} />
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       </td>
                     )}
                     <td className="px-6 py-4 text-center">
@@ -501,6 +693,15 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                     </td>
                     <td className="px-6 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
+                        {onRevertStage && canRevert(invoice) && (
+                          <button
+                            onClick={(e) => handleRevert(invoice.id, e)}
+                            className="p-2 text-amber-400 hover:text-amber-300 hover:bg-amber-900/20 rounded-lg transition-all"
+                            title="Revert to previous stage"
+                          >
+                            <Undo2 size={14} />
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -532,6 +733,118 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
           </tbody>
         </table>
       </div>
+
+      {/* Block Email Modal */}
+      {blockEmailModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setBlockEmailModal(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-700 bg-gradient-to-r from-red-900/30 to-orange-900/30">
+              <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                <div className="bg-red-600/20 p-2 rounded-xl">
+                  <Mail size={20} className="text-red-400" />
+                </div>
+                Block Evidence - {blockEmailModal.invoiceNumber}
+              </h3>
+              <p className="text-slate-400 text-sm mt-2">
+                Attach the email screenshot/PDF sent to PO Owner as evidence.
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Email Evidence (Screenshot/PDF)
+                </label>
+                <input
+                  type="file"
+                  ref={blockFileInputRef}
+                  onChange={handleBlockFileSelect}
+                  className="hidden"
+                  accept="image/*,.pdf,.msg,.eml"
+                />
+                {blockAttachment ? (
+                  <div className="bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Paperclip size={18} className="text-emerald-400" />
+                      <div>
+                        <p className="text-emerald-300 text-sm font-semibold truncate max-w-[250px]">{blockAttachment.name}</p>
+                        <p className="text-emerald-600 text-xs">{formatFileSize(blockAttachment.compressedSize)} compressed</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setBlockAttachment(null)}
+                      className="p-1.5 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => blockFileInputRef.current?.click()}
+                    disabled={isBlockCompressing}
+                    className="w-full bg-slate-950 border-2 border-dashed border-slate-700 hover:border-brand-500 rounded-xl px-4 py-6 text-slate-400 text-sm transition-all flex items-center justify-center gap-3"
+                  >
+                    {isBlockCompressing ? (
+                      <>
+                        <Loader2 size={20} className="animate-spin" />
+                        Compressing...
+                      </>
+                    ) : (
+                      <>
+                        <Paperclip size={20} />
+                        Click to attach email screenshot or PDF
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Reason for Blocking
+                </label>
+                <textarea
+                  value={reasonInput}
+                  onChange={(e) => setReasonInput(e.target.value)}
+                  placeholder="e.g., PO Owner notified on [date], awaiting response..."
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none"
+                />
+              </div>
+
+              {blockEmailModal.currentAttachment && (
+                <div className="bg-blue-950/30 border border-blue-900/50 rounded-xl p-4">
+                  <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">Current Attachment</p>
+                  <button
+                    onClick={() => downloadCompressedFile(blockEmailModal.currentAttachment!.data, blockEmailModal.currentAttachment!.name, blockEmailModal.currentAttachment!.mimeType)}
+                    className="text-blue-300 hover:text-blue-200 text-sm flex items-center gap-2"
+                  >
+                    <Download size={14} />
+                    {blockEmailModal.currentAttachment.name} ({formatFileSize(blockEmailModal.currentAttachment.compressedSize)})
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex justify-end gap-3 bg-slate-950/50">
+              <button
+                onClick={() => { setBlockEmailModal(null); setBlockAttachment(null); setReasonInput(''); }}
+                className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-bold transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveBlockEmail}
+                disabled={!blockAttachment && !reasonInput.trim()}
+                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+              >
+                <Paperclip size={16} />
+                Save Evidence
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

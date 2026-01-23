@@ -114,9 +114,12 @@ const App: React.FC = () => {
       if (activeView === 'PAYMENT') return inv.paymentStatus === 'REQUESTED';
 
       if (activeView === 'RECON') {
+        // Exclude invoices that have been sent to Payment Queue
+        if (inv.paymentStatus === 'REQUESTED') return false;
+        // Exclude CLOSED direct entries (PO_PENDING flow) - they stay in AP/Direct Entries
+        if (inv.currentStage === FlowStage.CLOSED && inv.flowType === FlowType.PO_PENDING) return false;
         const isReconStage = TEAM_STAGES.RECON.includes(inv.currentStage);
-        const isClosedFromRecon = inv.currentStage === FlowStage.CLOSED && inv.flowType === FlowType.MISSING_INVOICE && inv.paymentStatus !== 'REQUESTED';
-        return isReconStage || isClosedFromRecon;
+        return isReconStage;
       }
 
       if (activeView === 'AP') {
@@ -148,21 +151,22 @@ const App: React.FC = () => {
     return result;
   }, [invoices, searchTerm, activeView, filterEntity, sortConfig]);
 
-  // Invoices that were escalated from RECON team (came from RECON stages like MISSING_INVOICE_SENT_TO_AP)
+  // Invoices that were escalated from RECON team (MISSING_INVOICE flow at AP stages)
+  // This includes "Sent to Vendor" which is part of the reconciliation flow
   const apReconInvoices = useMemo(() =>
     filteredInvoices.filter(i =>
-      i.currentStage === FlowStage.MISSING_INVOICE_SENT_TO_AP ||
-      (i.source === 'RECON' && TEAM_STAGES.AP.includes(i.currentStage))
+      i.flowType === FlowType.MISSING_INVOICE &&
+      TEAM_STAGES.AP.includes(i.currentStage)
     ),
     [filteredInvoices]
   );
 
-  // Direct entries (MANUAL or EXCEL) that didn't go through RECON first
+  // Direct entries: PO_PENDING flow only (not MISSING_INVOICE)
   const apManualInvoices = useMemo(() =>
     filteredInvoices.filter(i =>
-      (i.source === 'MANUAL' || i.source === 'EXCEL') &&
+      i.flowType === FlowType.PO_PENDING &&
       (TEAM_STAGES.AP.includes(i.currentStage) ||
-       (i.currentStage === FlowStage.CLOSED && i.flowType === FlowType.PO_PENDING && i.paymentStatus !== 'REQUESTED'))
+       (i.currentStage === FlowStage.CLOSED && i.paymentStatus !== 'REQUESTED'))
     ),
     [filteredInvoices]
   );
@@ -267,6 +271,18 @@ const App: React.FC = () => {
     }
   };
 
+  const handleBulkRequestPayment = async (ids: string[]) => {
+    if (!user) return;
+
+    try {
+      await Promise.all(ids.map(id => api.invoices.update(id, { paymentStatus: 'REQUESTED' })));
+      await loadInvoices();
+    } catch (error) {
+      console.error('Error bulk requesting payment:', error);
+      alert('Failed to request payment for some invoices. Please try again.');
+    }
+  };
+
   const handlePaymentValidate = async (id: string, comments: string, attachments: Attachment[]) => {
     if (!user) return;
 
@@ -350,6 +366,97 @@ const App: React.FC = () => {
     }
   };
 
+  // Revert invoice to previous stage
+  const handleRevertStage = async (id: string) => {
+    if (!user) return;
+
+    const invoice = invoices.find(inv => inv.id === id);
+    if (!invoice) return;
+
+    // Get the flow stages for this invoice's flow type
+    const flowStages = invoice.flowType === FlowType.MISSING_INVOICE
+      ? [FlowStage.MISSING_INVOICE_MISSING, FlowStage.MISSING_INVOICE_SENT_TO_VENDOR, FlowStage.MISSING_INVOICE_SENT_TO_AP, FlowStage.MISSING_INVOICE_PO_PENDING, FlowStage.MISSING_INVOICE_POSTED, FlowStage.CLOSED]
+      : [FlowStage.PO_PENDING_RECEIVED, FlowStage.PO_PENDING_SENT, FlowStage.PO_PENDING_CREATED, FlowStage.PO_PENDING_EXR_CREATED, FlowStage.CLOSED];
+
+    const currentIndex = flowStages.indexOf(invoice.currentStage);
+
+    // Can't revert if already at first stage
+    if (currentIndex <= 0) {
+      alert('Cannot revert - invoice is already at the initial stage.');
+      return;
+    }
+
+    const previousStage = flowStages[currentIndex - 1];
+
+    try {
+      const updatedInvoice = await api.invoices.update(id, { currentStage: previousStage });
+
+      if (selectedInvoice?.id === id) {
+        setSelectedInvoice(updatedInvoice);
+      }
+
+      await loadInvoices();
+    } catch (error) {
+      console.error('Error reverting stage:', error);
+      alert('Failed to revert stage. Please try again.');
+    }
+  };
+
+  // Bulk revert invoices to previous stage
+  const handleBulkRevertStage = async (ids: string[]) => {
+    if (!user) return;
+
+    try {
+      for (const id of ids) {
+        const invoice = invoices.find(inv => inv.id === id);
+        if (!invoice) continue;
+
+        const flowStages = invoice.flowType === FlowType.MISSING_INVOICE
+          ? [FlowStage.MISSING_INVOICE_MISSING, FlowStage.MISSING_INVOICE_SENT_TO_VENDOR, FlowStage.MISSING_INVOICE_SENT_TO_AP, FlowStage.MISSING_INVOICE_PO_PENDING, FlowStage.MISSING_INVOICE_POSTED, FlowStage.CLOSED]
+          : [FlowStage.PO_PENDING_RECEIVED, FlowStage.PO_PENDING_SENT, FlowStage.PO_PENDING_CREATED, FlowStage.PO_PENDING_EXR_CREATED, FlowStage.CLOSED];
+
+        const currentIndex = flowStages.indexOf(invoice.currentStage);
+
+        if (currentIndex > 0) {
+          const previousStage = flowStages[currentIndex - 1];
+          await api.invoices.update(id, { currentStage: previousStage });
+        }
+      }
+
+      await loadInvoices();
+    } catch (error) {
+      console.error('Error bulk reverting stages:', error);
+      alert('Failed to revert some invoice stages. Please try again.');
+    }
+  };
+
+  // Update block evidence with compressed file attachment
+  const handleUpdateBlockEmail = async (id: string, reason: string, attachment?: Attachment) => {
+    if (!user) return;
+
+    try {
+      const updateData: any = {
+        blockReason: reason
+      };
+
+      // Store attachment as JSON string if provided
+      if (attachment) {
+        updateData.blockAttachment = JSON.stringify(attachment);
+      }
+
+      const updatedInvoice = await api.invoices.update(id, updateData);
+
+      if (selectedInvoice?.id === id) {
+        setSelectedInvoice(updatedInvoice);
+      }
+
+      await loadInvoices();
+    } catch (error) {
+      console.error('Error updating block evidence:', error);
+      alert('Failed to save block evidence. Please try again.');
+    }
+  };
+
   const handleBulkUpload = async (newInvoicesData: Partial<Invoice>[]) => {
     if (!user) return;
 
@@ -359,9 +466,9 @@ const App: React.FC = () => {
       for (const data of newInvoicesData) {
         const createdInvoice = await api.invoices.create({
           ...data,
-          source: 'EXCEL',
-          statusDetail: 'NONE',
-          paymentStatus: 'NONE',
+          source: data.source || 'EXCEL',
+          statusDetail: data.statusDetail || 'NONE',
+          paymentStatus: data.paymentStatus || 'NONE',
           currency: data.currency || 'EUR',
         });
 
@@ -570,6 +677,8 @@ const App: React.FC = () => {
                     onBulkDelete={handleBulkDelete}
                     activeView="AP"
                     onBulkUpdateStage={handleBulkUpdateStage}
+                    onRevertStage={handleRevertStage}
+                    onBulkRevertStage={handleBulkRevertStage}
                   />
                 </section>
 
@@ -589,6 +698,8 @@ const App: React.FC = () => {
                     onBulkDelete={handleBulkDelete}
                     activeView="AP"
                     onBulkUpdateStage={handleBulkUpdateStage}
+                    onRevertStage={handleRevertStage}
+                    onBulkRevertStage={handleBulkRevertStage}
                   />
                 </section>
               </div>
@@ -611,6 +722,10 @@ const App: React.FC = () => {
                   onTogglePaymentBlocked={handleTogglePaymentBlocked}
                   onBulkUpdatePaymentBlocked={handleBulkUpdatePaymentBlocked}
                   onBulkUpdateStage={handleBulkUpdateStage}
+                  onBulkRequestPayment={handleBulkRequestPayment}
+                  onRevertStage={handleRevertStage}
+                  onBulkRevertStage={handleBulkRevertStage}
+                  onUpdateBlockEmail={handleUpdateBlockEmail}
                 />
               </section>
             ) : activeView === 'PAYMENT' ? (
@@ -630,6 +745,8 @@ const App: React.FC = () => {
                   onBulkDelete={handleBulkDelete}
                   activeView="PAYMENT"
                   onBulkUpdateStage={handleBulkUpdateStage}
+                  onRevertStage={handleRevertStage}
+                  onBulkRevertStage={handleBulkRevertStage}
                 />
               </section>
             ) : (
@@ -649,6 +766,8 @@ const App: React.FC = () => {
                   onBulkDelete={handleBulkDelete}
                   activeView="ALL"
                   onBulkUpdateStage={handleBulkUpdateStage}
+                  onRevertStage={handleRevertStage}
+                  onBulkRevertStage={handleBulkRevertStage}
                 />
               </section>
             )}
@@ -668,6 +787,7 @@ const App: React.FC = () => {
             onAddEvidence={handleAddEvidence}
             onPaymentValidate={handlePaymentValidate}
             onRequestPayment={handleRequestPayment}
+            onRevertStage={handleRevertStage}
           />
         </>
       )}

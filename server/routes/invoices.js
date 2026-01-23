@@ -157,14 +157,23 @@ router.patch('/:id', async (req, res, next) => {
       paymentBlocked: 'payment_blocked',
       payment_blocked: 'payment_blocked',
       submissionTimestamp: 'submission_timestamp',
-      submission_timestamp: 'submission_timestamp'
+      submission_timestamp: 'submission_timestamp',
+      blockReason: 'block_reason',
+      block_reason: 'block_reason',
+      blockAttachment: 'block_attachment',
+      block_attachment: 'block_attachment'
     };
 
     const updates = {};
     Object.keys(req.body).forEach(key => {
       const dbField = fieldMappings[key];
       if (dbField && req.body[key] !== undefined) {
-        updates[dbField] = req.body[key];
+        let value = req.body[key];
+        // Convert block_attachment object to JSON string for storage
+        if (dbField === 'block_attachment' && typeof value === 'object' && value !== null) {
+          value = JSON.stringify(value);
+        }
+        updates[dbField] = value;
       }
     });
 

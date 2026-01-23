@@ -4,11 +4,13 @@ import { FlowStage, FlowType, Invoice } from './types';
 export const TEAM_STAGES = {
   RECON: [
     FlowStage.MISSING_INVOICE_MISSING,
-    FlowStage.MISSING_INVOICE_POSTED
+    FlowStage.MISSING_INVOICE_POSTED,
+    FlowStage.CLOSED
   ],
   AP: [
-    FlowStage.MISSING_INVOICE_SENT_TO_AP,
     FlowStage.MISSING_INVOICE_SENT_TO_VENDOR,
+    FlowStage.MISSING_INVOICE_SENT_TO_AP,
+    FlowStage.MISSING_INVOICE_PO_PENDING,
     FlowStage.PO_PENDING_RECEIVED,
     FlowStage.PO_PENDING_SENT,
     FlowStage.PO_PENDING_CREATED,
@@ -29,11 +31,13 @@ export const getStageOwner = (stage: FlowStage): string => {
 export const FLOW_CONFIG: Record<FlowType, FlowStage[]> = {
   [FlowType.MISSING_INVOICE]: [
     FlowStage.MISSING_INVOICE_MISSING,
+    FlowStage.MISSING_INVOICE_SENT_TO_VENDOR,
     FlowStage.MISSING_INVOICE_SENT_TO_AP,
-    FlowStage.PO_PENDING_CREATED,
-    FlowStage.MISSING_INVOICE_POSTED,
+    FlowStage.MISSING_INVOICE_PO_PENDING,
+    FlowStage.MISSING_INVOICE_POSTED, // PO Created + Posted merged into one step
     FlowStage.CLOSED
   ],
+  // Note: "Sent to Vendor" means sent to AP Processing team
   [FlowType.PO_PENDING]: [
     FlowStage.PO_PENDING_RECEIVED,
     FlowStage.PO_PENDING_SENT,

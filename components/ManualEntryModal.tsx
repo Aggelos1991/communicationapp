@@ -173,16 +173,22 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
             <div
               className={clsx(
                 "p-3 rounded-xl shadow-lg",
-                simplified
+                simplified || formData.flowType === FlowType.MISSING_INVOICE
                   ? "bg-rose-600/20 text-rose-500"
                   : "bg-amber-600/20 text-amber-500"
               )}
             >
-              {simplified ? <FileWarning size={24} /> : <Briefcase size={24} />}
+              {simplified || formData.flowType === FlowType.MISSING_INVOICE ? (
+                <FileWarning size={24} />
+              ) : (
+                <Briefcase size={24} />
+              )}
             </div>
             <div>
               <h2 className="text-xl font-bold text-white tracking-tight">
                 {simplified
+                  ? "New Missing Invoice Entry"
+                  : formData.flowType === FlowType.MISSING_INVOICE
                   ? "New Missing Invoice Entry"
                   : "New PO Pending Entry"}
               </h2>
@@ -205,6 +211,47 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
           onSubmit={handleSubmit}
           className="p-6 space-y-6 bg-slate-900 max-h-[85vh] overflow-y-auto scrollbar-thin"
         >
+          {/* Flow Type Selector - Only for AP Processing (non-simplified) */}
+          {!simplified && (
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-[0.2em]">
+                Flow Type
+              </label>
+              <div className="flex gap-2 p-1.5 bg-slate-800 rounded-xl border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, flowType: FlowType.PO_PENDING })
+                  }
+                  className={clsx(
+                    "flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2",
+                    formData.flowType === FlowType.PO_PENDING
+                      ? "bg-amber-600 text-white shadow-lg shadow-amber-900/40"
+                      : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  <Briefcase size={14} />
+                  PO Pending
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, flowType: FlowType.MISSING_INVOICE })
+                  }
+                  className={clsx(
+                    "flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2",
+                    formData.flowType === FlowType.MISSING_INVOICE
+                      ? "bg-rose-600 text-white shadow-lg shadow-rose-900/40"
+                      : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  <FileWarning size={14} />
+                  Missing Invoice
+                </button>
+              </div>
+            </div>
+          )}
+
           <div
             className={clsx(
               "grid grid-cols-2 gap-4 bg-slate-950/40 p-4 rounded-xl border border-slate-800",
@@ -232,7 +279,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
                 />
               </div>
             </div>
-            {!simplified && (
+            {!simplified && formData.flowType === FlowType.PO_PENDING && (
               <div className="col-span-1">
                 <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                   PO Creator / Owner *
@@ -323,7 +370,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
               </div>
             </div>
 
-            {!simplified && (
+            {!simplified && formData.flowType === FlowType.PO_PENDING && (
               <>
                 <div className="col-span-2">
                   <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-[0.2em]">

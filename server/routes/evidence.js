@@ -16,16 +16,25 @@ router.get('/invoice/:invoiceId', async (req, res, next) => {
       ORDER BY e.created_at ASC
     `, [req.params.invoiceId]);
 
-    // Fetch attachments for each evidence item
+    // Fetch compressed attachments for each evidence item
     const evidenceWithAttachments = await Promise.all(
       evidence.map(async (ev) => {
         const [attachments] = await db.query(
-          'SELECT id, name, url, type, size, created_at FROM attachments WHERE evidence_id = ? ORDER BY created_at ASC',
+          'SELECT id, name, data, mime_type, original_size, compressed_size, created_at FROM attachments WHERE evidence_id = ? ORDER BY created_at ASC',
           [ev.id]
         );
+        // Map to frontend format
+        const formattedAttachments = attachments.map(att => ({
+          id: att.id,
+          name: att.name,
+          mimeType: att.mime_type,
+          data: att.data,
+          originalSize: att.original_size,
+          compressedSize: att.compressed_size
+        }));
         return {
           ...ev,
-          attachments
+          attachments: formattedAttachments
         };
       })
     );
@@ -48,10 +57,21 @@ router.post('/', async (req, res, next) => {
     const stage_added_at = req.body.stage_added_at || req.body.stageAddedAt;
     const attachments = req.body.attachments;
 
-    if (!invoice_id || !type || !content || !stage_added_at) {
-      console.log('Missing fields - invoice_id:', invoice_id, 'type:', type, 'content:', content, 'stage_added_at:', stage_added_at);
+    // Allow empty content if there are attachments
+    const hasAttachments = attachments && Array.isArray(attachments) && attachments.length > 0;
+    const hasContent = content && content.trim().length > 0;
+
+    if (!invoice_id || !type || !stage_added_at) {
+      console.log('Missing fields - invoice_id:', invoice_id, 'type:', type, 'stage_added_at:', stage_added_at);
       return res.status(400).json({
-        error: 'Missing required fields: invoice_id, type, content, stage_added_at'
+        error: 'Missing required fields: invoice_id, type, stage_added_at'
+      });
+    }
+
+    if (!hasContent && !hasAttachments) {
+      console.log('No content or attachments provided');
+      return res.status(400).json({
+        error: 'Evidence must have either content or attachments'
       });
     }
 
@@ -67,36 +87,29 @@ router.post('/', async (req, res, next) => {
     const [profile] = await db.query('SELECT name FROM profiles WHERE id = ?', [req.user.id]);
     const created_by = profile[0]?.name || req.user.email;
 
+    // Use content or default to 'Attachment' if only attachment provided
+    const finalContent = hasContent ? content : 'Attachment';
+
     await db.query(`
       INSERT INTO evidence (id, invoice_id, type, content, stage_added_at, created_by, created_by_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [evidenceId, invoice_id, type, content, stage_added_at, created_by, req.user.id]);
+    `, [evidenceId, invoice_id, type, finalContent, stage_added_at, created_by, req.user.id]);
 
-    // Link attachments to this evidence if any were uploaded
+    // Link compressed attachments to this evidence if any were uploaded
     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
       for (const file of attachments) {
-        // Determine attachment type from mimetype or extension
-        let attachmentType = 'OTHER';
-        const mimetype = file.mimetype || '';
-        if (mimetype.startsWith('image/')) {
-          attachmentType = 'IMAGE';
-        } else if (mimetype === 'application/pdf') {
-          attachmentType = 'PDF';
-        } else if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) {
-          attachmentType = 'EXCEL';
-        }
-
-        const attachmentId = uuidv4();
+        const attachmentId = file.id || uuidv4();
         await db.query(`
-          INSERT INTO attachments (id, evidence_id, name, url, type, size)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO attachments (id, evidence_id, name, data, mime_type, original_size, compressed_size)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
           attachmentId,
           evidenceId,
-          file.originalName || file.filename,
-          file.path,
-          attachmentType,
-          file.size || 0
+          file.name,
+          file.data,
+          file.mimeType,
+          file.originalSize || 0,
+          file.compressedSize || 0
         ]);
       }
     }

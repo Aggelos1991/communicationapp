@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Invoice, FlowStage, FlowType } from '../types';
 // Fixed missing FileText import from lucide-react
-import { AlertCircle, CheckCircle2, Clock, TrendingUp, Activity, Wallet, Zap, Calendar, UserCircle, Building2, AlertTriangle, FileWarning, BarChart3, ShieldCheck, Users, ArrowRight, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Activity, Wallet, Zap, Calendar, UserCircle, Building2, AlertTriangle, FileWarning, BarChart3, ShieldCheck, Users, ArrowRight, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface DashboardProps {
@@ -125,13 +125,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvo
       .slice(0, 6);
   }, [invoices]);
 
-  const statusAllocation = [
-    { name: 'Missing', value: stats.missing, color: '#f43f5e' }, 
-    { name: 'PO Pending', value: stats.pendingPO, color: '#f59e0b' }, 
-    { name: 'Ready', value: stats.readyPost, color: '#10b981' }, 
-    { name: 'Payment', value: stats.paymentValidation, color: '#8b5cf6' },
-  ].filter(d => d.value > 0);
-
   const formatEuro = (val: number) => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
 
   return (
@@ -211,8 +204,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvo
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* PO Creator Bottleneck */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm relative group">
+            {/* PO Creator Bottleneck - Full Width */}
+            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm relative group lg:col-span-2">
               <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50"></div>
               <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-8 flex items-center gap-2">
                 <Users size={16} className="text-amber-500" /> Procurement Bottlenecks
@@ -230,30 +223,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvo
                 ) : (
                   <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">All POs processed.</div>
                 )}
-              </div>
-            </div>
-
-            {/* Stage Allocation */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm relative group">
-              <div className="absolute top-0 left-0 w-1 h-full bg-brand-500/50"></div>
-              <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-8 flex items-center gap-2">
-                <TrendingUp size={16} className="text-brand-500" /> Pipeline Density
-              </h4>
-              <div className="h-[220px] flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={statusAllocation} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none" cornerRadius={8}>
-                      {statusAllocation.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-6">
-                  <p className="text-2xl font-black text-white">{stats.active}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Active</p>
-                </div>
               </div>
             </div>
           </div>

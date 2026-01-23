@@ -37,7 +37,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: ['http://localhost:3001', 'http://localhost:3002'], credentials: true }));
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'], credentials: true }));
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
@@ -241,14 +241,18 @@ app.post('/api/evidence', authenticateToken, async (req: any, res) => {
       profile?.name || req.user.email
     );
 
-    // Create attachments if provided (files already uploaded to /uploads)
+    // Create compressed attachments if provided
     if (attachments && Array.isArray(attachments)) {
       for (const att of attachments) {
         await createAttachment(
-          att.name,
-          att.url,
-          att.type,
-          att.size,
+          {
+            id: att.id,
+            name: att.name,
+            mimeType: att.mimeType,
+            data: att.data,
+            originalSize: att.originalSize || 0,
+            compressedSize: att.compressedSize || 0
+          },
           evidence.id,
           undefined
         );
@@ -306,14 +310,19 @@ app.post('/api/payment-validations', authenticateToken, async (req: any, res) =>
       comments
     );
 
-    // Create attachments if provided
+    // Create compressed attachments if provided
     if (attachments && Array.isArray(attachments)) {
       for (const att of attachments) {
+        // New compressed attachment format
         await createAttachment(
-          att.name,
-          att.url,
-          att.type,
-          att.size,
+          {
+            id: att.id,
+            name: att.name,
+            mimeType: att.mimeType,
+            data: att.data,
+            originalSize: att.originalSize || 0,
+            compressedSize: att.compressedSize || 0
+          },
           undefined,
           validation.id
         );
@@ -389,9 +398,21 @@ app.get('/api/attachments/payment-validation/:paymentValidationId', authenticate
 
 app.post('/api/attachments', authenticateToken, async (req: any, res) => {
   try {
-    const { name, url, type, size, evidence_id, payment_validation_id } = req.body;
-    const attachment = await createAttachment(name, url, type, size, evidence_id, payment_validation_id);
-    res.status(201).json(attachment);
+    const { attachment, evidence_id, payment_validation_id } = req.body;
+    // New compressed attachment format
+    const created = await createAttachment(
+      {
+        id: attachment?.id,
+        name: attachment?.name,
+        mimeType: attachment?.mimeType,
+        data: attachment?.data,
+        originalSize: attachment?.originalSize || 0,
+        compressedSize: attachment?.compressedSize || 0
+      },
+      evidence_id,
+      payment_validation_id
+    );
+    res.status(201).json(created);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

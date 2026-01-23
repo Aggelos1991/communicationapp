@@ -85,7 +85,18 @@ function toCamelCase(obj: any): any {
   if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
     return Object.keys(obj).reduce((acc, key) => {
       const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-      acc[camelKey] = toCamelCase(obj[key]);
+      let value = obj[key];
+
+      // Parse JSON strings for block_attachment field
+      if (key === 'block_attachment' && typeof value === 'string' && value) {
+        try {
+          value = JSON.parse(value);
+        } catch (e) {
+          console.warn('Failed to parse block_attachment JSON:', e);
+        }
+      }
+
+      acc[camelKey] = toCamelCase(value);
       return acc;
     }, {} as any);
   }

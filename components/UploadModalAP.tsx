@@ -87,8 +87,8 @@ export const UploadModalAP: React.FC<UploadModalAPProps> = ({
 
         // Validate Status Detail
         const statusDetail = row['Status Detail']?.toString().trim().toUpperCase();
-        if (statusDetail && !['WITHOUT PO', 'WITH PO', 'NONE'].includes(statusDetail)) {
-          parseErrors.push(`Row ${rowNum}: Status Detail must be "WITHOUT PO", "WITH PO", or "NONE"`);
+        if (statusDetail && !['WITHOUT PO', 'EXR PENDING', 'NONE'].includes(statusDetail)) {
+          parseErrors.push(`Row ${rowNum}: Status Detail must be "WITHOUT PO", "EXR PENDING", or "NONE"`);
         }
 
         const parsedRow: ParsedRow = {
@@ -206,7 +206,7 @@ export const UploadModalAP: React.FC<UploadModalAPProps> = ({
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li><span className="font-mono bg-slate-800 px-1.5 py-0.5 rounded">Amount</span> - Invoice amount (numeric)</li>
                 <li><span className="font-mono bg-slate-800 px-1.5 py-0.5 rounded">SharePoint URL</span> - Link to document</li>
-                <li><span className="font-mono bg-slate-800 px-1.5 py-0.5 rounded">Status Detail</span> - "WITHOUT PO", "WITH PO", or "NONE"</li>
+                <li><span className="font-mono bg-slate-800 px-1.5 py-0.5 rounded">Status Detail</span> - "WITHOUT PO", "EXR PENDING", or "NONE"</li>
                 <li><span className="font-mono bg-slate-800 px-1.5 py-0.5 rounded">Comment</span> - Additional notes</li>
               </ul>
             </div>

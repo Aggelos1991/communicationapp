@@ -51,6 +51,11 @@ export function downloadCompressedFile(
   fileName: string,
   mimeType: string
 ): void {
+  // Handle missing or null data (legacy attachments)
+  if (!base64Data || base64Data === 'null' || base64Data === 'undefined') {
+    throw new Error('Attachment data is missing. This may be a legacy attachment that was not migrated.');
+  }
+
   try {
     // Decode base64 to binary
     const binaryString = atob(base64Data);
@@ -76,7 +81,7 @@ export function downloadCompressedFile(
     URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Error decompressing file:', error);
-    throw new Error('Failed to decompress file');
+    throw new Error('Failed to download file. The attachment data may be corrupted or in an old format.');
   }
 }
 
