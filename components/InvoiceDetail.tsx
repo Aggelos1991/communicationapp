@@ -1,11 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Invoice, FlowStage, FlowType, Attachment, Evidence, TeamView } from '../types';
+import { Invoice, FlowStage, FlowType, Attachment, Evidence, TeamView, ReconSession } from '../types';
 import { FLOW_CONFIG, TEAM_STAGES, getStageOwner } from '../constants';
-import { X, CheckCircle2, Clock, Mail, ShieldCheck, Send, Building2, FileText, ArrowRight, Users, UserCircle, History, Layers, ChevronRight, Zap, Euro, Landmark, Inbox, Edit, Save, XCircle, Undo2, Paperclip, Download, Loader2 } from 'lucide-react';
+import { X, CheckCircle2, Clock, Mail, ShieldCheck, Send, Building2, FileText, ArrowRight, Users, UserCircle, History, Layers, ChevronRight, Zap, Euro, Landmark, Inbox, Edit, Save, XCircle, Undo2, Paperclip, Download, Loader2, FileArchive } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Badge } from './ui/Badge';
 import api, { downloadFile } from '../lib/api';
 import { compressFile, downloadCompressedFile, formatFileSize, MAX_ORIGINAL_SIZE } from '../lib/compression';
+import pako from 'pako';
+
+// Decompress base64 to blob for download (for ReconRaptor traceback)
+const decompressBase64ToBlob = (base64: string, mimeType: string): Blob => {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  const decompressed = pako.ungzip(bytes);
+  return new Blob([decompressed], { type: mimeType });
+};
 
 interface InvoiceDetailProps {
   invoice: Invoice;
@@ -48,6 +60,9 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
   const [paymentValidation, setPaymentValidation] = useState<any>(null);
   const [loadingEvidence, setLoadingEvidence] = useState(true);
 
+  // ReconRaptor traceback - load session if this invoice came from ReconRaptor
+  const [reconSession, setReconSession] = useState<ReconSession | null>(null);
+
   // Confirmation modal states
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -73,9 +88,72 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
     }
   };
 
+  // Load ReconRaptor session for traceback if this invoice came from RECON
+  // Matches by: 1) reconSessionId if available, 2) vendor name match
+  const loadReconSession = () => {
+    if (invoice.source !== 'RECON') return;
+
+    try {
+      const sessions = JSON.parse(localStorage.getItem('reconSessions') || '[]') as ReconSession[];
+
+      // First try to match by sessionId
+      if (invoice.reconSessionId) {
+        const sessionById = sessions.find(s => s.id === invoice.reconSessionId);
+        if (sessionById) {
+          setReconSession(sessionById);
+          return;
+        }
+      }
+
+      // Fallback: find by vendor name (case insensitive)
+      // This ensures all invoices from same vendor point to same files
+      const vendorLower = invoice.vendor?.toLowerCase().trim();
+      if (vendorLower) {
+        const sessionByVendor = sessions.find(s =>
+          s.vendorName?.toLowerCase().trim() === vendorLower
+        );
+        if (sessionByVendor) {
+          setReconSession(sessionByVendor);
+          return;
+        }
+      }
+
+      setReconSession(null);
+    } catch (error) {
+      console.error('Error loading recon session:', error);
+    }
+  };
+
+  // Download source file from ReconRaptor session
+  const downloadSourceFile = (type: 'erp' | 'vendor') => {
+    if (!reconSession) return;
+
+    try {
+      const data = type === 'erp' ? reconSession.erpFileData : reconSession.vendorFileData;
+      const fileName = type === 'erp' ? reconSession.erpFileName : reconSession.vendorFileName;
+      const mimeType = fileName.endsWith('.xlsx')
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/vnd.ms-excel';
+
+      const blob = decompressBase64ToBlob(data, mimeType);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading source file:', error);
+      alert('Failed to download file');
+    }
+  };
+
   useEffect(() => {
     loadData();
-  }, [invoice.id]);
+    loadReconSession();
+  }, [invoice.id, invoice.vendor]);
 
   const handleSaveEdit = () => {
     onUpdateInvoice(invoice.id, editData);
@@ -386,6 +464,45 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
               </div>
             )}
         </div>
+
+        {/* ReconRaptor Traceback Section - shows source files for RECON invoices */}
+        {invoice.source === 'RECON' && reconSession && (
+          <div className="bg-gradient-to-r from-amber-950/30 to-slate-900 border-b border-amber-900/30 px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-600/20 p-2 rounded-xl border border-amber-600/30">
+                  <FileArchive size={18} className="text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">ReconRaptor Source Files</p>
+                  <p className="text-xs text-slate-400">Vendor: <span className="font-bold text-white">{reconSession.vendorName}</span></p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => downloadSourceFile('erp')}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 px-4 py-2.5 rounded-xl transition-all group"
+                >
+                  <Download size={14} className="text-amber-500" />
+                  <div className="text-left">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">ERP Export</p>
+                    <p className="text-[10px] font-bold text-slate-300 group-hover:text-white truncate max-w-[120px]">{reconSession.erpFileName}</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => downloadSourceFile('vendor')}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 px-4 py-2.5 rounded-xl transition-all group"
+                >
+                  <Download size={14} className="text-amber-500" />
+                  <div className="text-left">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Vendor Statement</p>
+                    <p className="text-[10px] font-bold text-slate-300 group-hover:text-white truncate max-w-[120px]">{reconSession.vendorFileName}</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto px-8 py-8 scrollbar-thin">

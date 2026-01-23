@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Invoice, TeamView, FlowStage, FlowType, Attachment } from '../types';
+import { Invoice, TeamView, FlowStage, FlowType, Attachment, ReconSession } from '../types';
 import { FLOW_CONFIG, TEAM_STAGES } from '../constants';
 import { Badge } from './ui/Badge';
-import { ChevronRight, FileText, MessageSquare, Building2, UserCircle, Clock, Link as LinkIcon, ExternalLink, Trash2, Filter, X, Edit, Ban, CheckCircle, Download, ArrowRight, Send, Undo2, Paperclip, Mail, Loader2 } from 'lucide-react';
+import { ChevronRight, FileText, MessageSquare, Building2, UserCircle, Clock, Link as LinkIcon, ExternalLink, Trash2, Filter, X, Edit, Ban, CheckCircle, Download, ArrowRight, Send, Undo2, Paperclip, Mail, Loader2, FileArchive } from 'lucide-react';
 import { clsx } from 'clsx';
 import { exportToExcel } from '../lib/exportExcel';
 import { compressFile, downloadCompressedFile, formatFileSize, MAX_ORIGINAL_SIZE } from '../lib/compression';
+import pako from 'pako';
 
 interface InvoiceListProps {
   invoices: Invoice[];
@@ -46,6 +47,89 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
   const [blockAttachment, setBlockAttachment] = useState<Attachment | null>(null);
   const [isBlockCompressing, setIsBlockCompressing] = useState(false);
   const blockFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Traceback modal state
+  const [tracebackModal, setTracebackModal] = useState<{
+    isOpen: boolean;
+    session: ReconSession | null;
+    invoiceNumber: string;
+  } | null>(null);
+
+  // Decompress base64 to blob for download
+  const decompressBase64ToBlob = (base64: string, mimeType: string): Blob => {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const decompressed = pako.ungzip(bytes);
+    return new Blob([decompressed], { type: mimeType });
+  };
+
+  // Download source file from session
+  const downloadSourceFile = (session: ReconSession, type: 'erp' | 'vendor') => {
+    try {
+      const data = type === 'erp' ? session.erpFileData : session.vendorFileData;
+      const fileName = type === 'erp' ? session.erpFileName : session.vendorFileName;
+      const mimeType = fileName.endsWith('.xlsx')
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/vnd.ms-excel';
+
+      const blob = decompressBase64ToBlob(data, mimeType);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading source file:', error);
+      alert('Failed to download file');
+    }
+  };
+
+  // Open traceback modal for RECON invoices
+  // Matches by: 1) reconSessionId if available, 2) vendor name match
+  const openTracebackModal = (invoice: Invoice, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (invoice.source !== 'RECON') {
+      alert('No traceback available for this invoice');
+      return;
+    }
+
+    try {
+      const sessions = JSON.parse(localStorage.getItem('reconSessions') || '[]') as ReconSession[];
+      let session: ReconSession | undefined;
+
+      // First try to match by sessionId
+      if (invoice.reconSessionId) {
+        session = sessions.find(s => s.id === invoice.reconSessionId);
+      }
+
+      // Fallback: find by vendor name (case insensitive)
+      if (!session && invoice.vendor) {
+        const vendorLower = invoice.vendor.toLowerCase().trim();
+        session = sessions.find(s =>
+          s.vendorName?.toLowerCase().trim() === vendorLower
+        );
+      }
+
+      if (session) {
+        setTracebackModal({
+          isOpen: true,
+          session,
+          invoiceNumber: invoice.invoiceNumber
+        });
+      } else {
+        alert('Session not found - source files may have been cleared');
+      }
+    } catch (error) {
+      console.error('Error loading traceback:', error);
+      alert('Failed to load traceback data');
+    }
+  };
 
   const toggleSelection = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -681,6 +765,16 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                     )}
                     <td className="px-6 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Traceback button for RECON invoices */}
+                        {invoice.source === 'RECON' && (
+                          <button
+                            onClick={(e) => openTracebackModal(invoice, e)}
+                            className="p-2 text-amber-400 hover:text-amber-300 hover:bg-amber-900/20 rounded-lg transition-all"
+                            title="View source files (ERP & Vendor Statement)"
+                          >
+                            <FileArchive size={14} />
+                          </button>
+                        )}
                         {onRevertStage && canRevert(invoice) && (
                           <button
                             onClick={(e) => handleRevert(invoice.id, e)}
@@ -828,6 +922,87 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
               >
                 <Paperclip size={16} />
                 Save Evidence
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Traceback Modal - ReconRaptor Source Files */}
+      {tracebackModal && tracebackModal.session && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setTracebackModal(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-700 bg-gradient-to-r from-amber-900/30 to-orange-900/30">
+              <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                <div className="bg-amber-600/20 p-2 rounded-xl">
+                  <FileArchive size={20} className="text-amber-400" />
+                </div>
+                ReconRaptor Source Files
+              </h3>
+              <p className="text-slate-400 text-sm mt-2">
+                Invoice: <span className="font-bold text-white">{tracebackModal.invoiceNumber}</span>
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-800/50 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Vendor:</span>
+                  <span className="text-white font-bold">{tracebackModal.session.vendorName}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Created:</span>
+                  <span className="text-slate-300">{new Date(tracebackModal.session.createdAt).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Matched:</span>
+                  <span className="text-emerald-400 font-mono">{tracebackModal.session.matchedCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Missing in ERP:</span>
+                  <span className="text-rose-400 font-mono">{tracebackModal.session.missingInErpCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Missing in Vendor:</span>
+                  <span className="text-purple-400 font-mono">{tracebackModal.session.missingInVendorCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Imported:</span>
+                  <span className="text-brand-400 font-mono">{tracebackModal.session.importedCount}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => downloadSourceFile(tracebackModal.session!, 'erp')}
+                  className="flex flex-col items-center gap-2 bg-emerald-900/20 hover:bg-emerald-900/40 border border-emerald-900/50 rounded-xl p-4 transition-all group"
+                >
+                  <Download size={24} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">ERP Export</p>
+                    <p className="text-[10px] text-slate-400 truncate max-w-[140px]">{tracebackModal.session.erpFileName}</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => downloadSourceFile(tracebackModal.session!, 'vendor')}
+                  className="flex flex-col items-center gap-2 bg-cyan-900/20 hover:bg-cyan-900/40 border border-cyan-900/50 rounded-xl p-4 transition-all group"
+                >
+                  <Download size={24} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Vendor Statement</p>
+                    <p className="text-[10px] text-slate-400 truncate max-w-[140px]">{tracebackModal.session.vendorFileName}</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex justify-end bg-slate-950/50">
+              <button
+                onClick={() => setTracebackModal(null)}
+                className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-bold transition-all"
+              >
+                Close
               </button>
             </div>
           </div>

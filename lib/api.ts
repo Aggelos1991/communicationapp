@@ -165,6 +165,12 @@ export const api = {
         body: JSON.stringify({ ids, updates: toSnakeCase(updates) }),
       }),
 
+    bulkImport: (invoices: any[], attachments?: { vendorStatement?: any; erpStatement?: any }) =>
+      apiFetch('/api/invoices/bulk-import', {
+        method: 'POST',
+        body: JSON.stringify({ invoices: invoices.map(toSnakeCase), attachments }),
+      }),
+
     getStats: () => apiFetch('/api/invoices/stats/summary'),
   },
 

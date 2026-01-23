@@ -20,6 +20,22 @@ export enum FlowStage {
 export type TeamView = 'ALL' | 'RECON' | 'AP' | 'PAYMENT';
 export type PaymentStatus = 'NONE' | 'REQUESTED' | 'PAID';
 export type InvoiceSource = 'MANUAL' | 'EXCEL' | 'RECON';
+
+// ReconRaptor session - stores source files once, links to multiple invoices
+export interface ReconSession {
+  id: string;
+  createdAt: string;
+  createdBy: string;
+  vendorName: string;           // Vendor being reconciled
+  erpFileName: string;          // Original ERP file name
+  vendorFileName: string;       // Original vendor statement file name
+  erpFileData: string;          // Compressed base64 data
+  vendorFileData: string;       // Compressed base64 data
+  matchedCount: number;         // Stats
+  missingInErpCount: number;
+  missingInVendorCount: number;
+  importedCount: number;        // How many were sent to queue
+}
 export type StatusDetail = 'WITHOUT PO' | 'EXR PENDING' | 'NONE';
 
 // Compressed file attachments - stored as gzip + base64 in DB to minimize storage
@@ -60,6 +76,7 @@ export interface Invoice {
   updatedAt: string;
   createdBy?: string; // User email who created the entry
   createdByRole?: string; // User role who created the entry
+  reconSessionId?: string; // Link to ReconRaptor session for traceback
   evidence: Evidence[];
   paymentStatus: PaymentStatus;
   paymentBlocked: boolean; // Flag for blocking payment in Reconciliation

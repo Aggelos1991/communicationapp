@@ -6,13 +6,15 @@ import { InvoiceDetail } from './components/InvoiceDetail';
 import { UploadModal } from './components/UploadModal';
 import { UploadModalAP } from './components/UploadModalAP';
 import { DeloitteUploadModal } from './components/DeloitteUploadModal';
+import { ReconRaptorModal } from './components/ReconRaptorModal';
+import { DataFalconModal } from './components/DataFalconModal';
 import { ManualEntryModal } from './components/ManualEntryModal';
 import { AIAssistant } from './components/AIAssistant';
 import { SignIn } from './components/SignIn';
 import { SettingsModal } from './components/SettingsModal';
 import { TEAM_STAGES } from './constants';
 import { Invoice, FlowStage, FlowType, Evidence, TeamView, Attachment, StatusDetail } from './types';
-import { Plus, Upload, Search, LayoutDashboard, FileText, CheckCircle2, RefreshCw, Filter, Users, Activity, Wallet, ArrowRight, LogOut, User, Settings } from 'lucide-react';
+import { Plus, Upload, Search, LayoutDashboard, FileText, CheckCircle2, RefreshCw, Filter, Users, Activity, Wallet, ArrowRight, LogOut, User, Settings, Zap, Bird } from 'lucide-react';
 import { clsx } from 'clsx';
 import { authService, type AuthUser } from './services/authService';
 import api from './lib/api';
@@ -31,6 +33,8 @@ const App: React.FC = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isUploadModalAPOpen, setIsUploadModalAPOpen] = useState(false);
   const [isDeloitteUploadOpen, setIsDeloitteUploadOpen] = useState(false);
+  const [isReconRaptorModalOpen, setIsReconRaptorModalOpen] = useState(false);
+  const [isDataFalconModalOpen, setIsDataFalconModalOpen] = useState(false);
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -464,27 +468,42 @@ const App: React.FC = () => {
 
     try {
       const createdInvoices: Invoice[] = [];
+      const errors: string[] = [];
 
       for (const data of newInvoicesData) {
-        const createdInvoice = await api.invoices.create({
-          ...data,
-          source: data.source || 'EXCEL',
-          statusDetail: data.statusDetail || 'NONE',
-          paymentStatus: data.paymentStatus || 'NONE',
-          currency: data.currency || 'EUR',
-        });
+        try {
+          const createdInvoice = await api.invoices.create({
+            ...data,
+            source: data.source || 'EXCEL',
+            statusDetail: data.statusDetail || 'NONE',
+            paymentStatus: data.paymentStatus || 'NONE',
+            currency: data.currency || 'EUR',
+          });
 
-        createdInvoices.push(createdInvoice);
+          createdInvoices.push(createdInvoice);
+        } catch (err: any) {
+          console.error(`Error creating invoice ${data.invoiceNumber}:`, err);
+          errors.push(`${data.invoiceNumber}: ${err.message}`);
+        }
       }
 
       // Reload all invoices after bulk upload
       await loadInvoices();
+
+      // Show success/partial success message
+      if (createdInvoices.length > 0 && errors.length === 0) {
+        // All succeeded - no alert needed
+      } else if (createdInvoices.length > 0 && errors.length > 0) {
+        alert(`Created ${createdInvoices.length} invoices. ${errors.length} failed:\n${errors.slice(0, 3).join('\n')}${errors.length > 3 ? '\n...' : ''}`);
+      } else if (errors.length > 0) {
+        throw new Error(errors[0]);
+      }
     } catch (error: any) {
       console.error('Error bulk uploading invoices:', error);
       if (error.message?.includes('duplicate')) {
         alert('Some invoices have duplicate invoice numbers. Please check your Excel file.');
       } else {
-        alert('Failed to upload invoices. Please try again.');
+        alert(`Failed to upload invoices: ${error.message || 'Unknown error'}`);
       }
     }
   };
@@ -703,63 +722,37 @@ const App: React.FC = () => {
                   <TabButton view="RECON" label="Reconciliation" icon={CheckCircle2} colorClass="text-emerald-400" />
                   <TabButton view="AP" label="AP Processing" icon={RefreshCw} colorClass="text-brand-400" />
                   <TabButton view="PAYMENT" label="Payment Queue" icon={Wallet} colorClass="text-violet-400" />
-                  <TabButton view="ALL" label="All Entries" icon={Users} colorClass="text-slate-200" />
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                  <div className="relative flex-1 min-w-[280px] group">
-                    <Search className="absolute left-4 top-3 text-slate-500 group-focus-within:text-brand-400 transition-colors" size={18} aria-hidden="true" />
-                    <input type="text" placeholder="Search invoices, vendors..." className="w-full bg-slate-900/80 border border-slate-700/50 rounded-2xl pl-12 pr-5 py-3 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/50 outline-none transition-all duration-300 shadow-lg shadow-black/10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                  </div>
+                <div className="flex items-center gap-2">
                   {activeView === 'RECON' && (
                     <>
                       <button
-                        onClick={() => setIsManualEntryModalOpen(true)}
-                        className="group bg-slate-800/80 hover:bg-slate-700 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider border border-slate-700/50 shadow-xl transition-all duration-500 flex items-center gap-2"
-                        style={{
-                          transformStyle: 'preserve-3d',
-                          transform: 'perspective(500px) rotateX(0deg)',
-                          transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(-5deg) translateY(-2px) scale(1.02)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(0deg)'}
+                        onClick={() => setIsReconRaptorModalOpen(true)}
+                        className="group flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 shadow-lg shadow-violet-500/20"
                       >
-                        <Plus size={16} className="group-hover:rotate-180 transition-transform duration-500" /> Add Manual
+                        <Zap size={14} /> ReconRaptor
+                      </button>
+                      <button
+                        onClick={() => setIsDataFalconModalOpen(true)}
+                        className="group flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 shadow-lg shadow-amber-500/20"
+                      >
+                        <Bird size={14} /> DataFalcon
+                      </button>
+                      <button
+                        onClick={() => setIsManualEntryModalOpen(true)}
+                        className="group flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl text-xs font-semibold border border-slate-600 transition-all duration-200"
+                      >
+                        <Plus size={14} /> Manual Entry
                       </button>
                       <button
                         onClick={() => setIsDeloitteUploadOpen(true)}
-                        className="group relative overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-emerald-500/25 transition-all duration-500 flex items-center gap-2"
-                        style={{
-                          transformStyle: 'preserve-3d',
-                          transform: 'perspective(500px) rotateX(0deg)',
-                          transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(-5deg) translateY(-3px) scale(1.03)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(0deg)'}
+                        className="group flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/20"
                       >
-                        <Upload size={16} className="group-hover:-translate-y-1 group-hover:scale-110 transition-transform duration-500" /> Deloitte Upload
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-t from-white/10 to-transparent transition-opacity duration-500" />
+                        <Upload size={14} /> Deloitte Import
                       </button>
                     </>
-                  )}
-                  {activeView === 'AP' && (
-                    <button
-                      onClick={() => setIsUploadModalAPOpen(true)}
-                      className="group relative overflow-hidden bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-orange-500/25 transition-all duration-500 flex items-center gap-2"
-                      style={{
-                        transformStyle: 'preserve-3d',
-                        transform: 'perspective(500px) rotateX(0deg)',
-                        transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(-5deg) translateY(-3px) scale(1.03)'}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(500px) rotateX(0deg)'}
-                    >
-                      <Upload size={16} className="group-hover:-translate-y-1 group-hover:scale-110 transition-transform duration-500" /> Import Excel
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-t from-white/10 to-transparent transition-opacity duration-500" />
-                    </button>
                   )}
                 </div>
               </div>
@@ -882,6 +875,25 @@ const App: React.FC = () => {
           onClose={() => setIsDeloitteUploadOpen(false)}
           onUpload={handleBulkUpload}
           existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))}
+        />
+      )}
+      {isReconRaptorModalOpen && (
+        <ReconRaptorModal
+          isOpen={isReconRaptorModalOpen}
+          onClose={() => setIsReconRaptorModalOpen(false)}
+          onImportComplete={async (newInvoices) => {
+            // Use handleBulkUpload to create the invoices via API
+            if (newInvoices && newInvoices.length > 0) {
+              await handleBulkUpload(newInvoices);
+            }
+          }}
+          existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))}
+        />
+      )}
+      {isDataFalconModalOpen && (
+        <DataFalconModal
+          isOpen={isDataFalconModalOpen}
+          onClose={() => setIsDataFalconModalOpen(false)}
         />
       )}
       {isManualEntryModalOpen && (

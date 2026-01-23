@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { Dashboard } from './components/Dashboard';
-import { InvoiceList } from './components/InvoiceList';
-import { InvoiceDetail } from './components/InvoiceDetail';
-import { UploadModal } from './components/UploadModal';
-import { ManualEntryModal } from './components/ManualEntryModal';
-import { AIAssistant } from './components/AIAssistant';
-import { SignIn } from './components/SignIn';
-import { MOCK_INVOICES as INITIAL_DATA, TEAM_STAGES } from './constants';
-import { Invoice, FlowStage, Evidence, TeamView, Attachment, StatusDetail, FlowType } from './types';
-import { Plus, Upload, Search, LayoutDashboard, FileText, CheckCircle2, RefreshCw, Filter, Users, Activity, Wallet, ArrowRight, LogOut, User, ShieldCheck, Landmark } from 'lucide-react';
+import { Dashboard } from './Dashboard';
+import { InvoiceList } from './InvoiceList';
+import { InvoiceDetail } from './InvoiceDetail';
+import { UploadModal } from './UploadModal';
+import { ManualEntryModal } from './ManualEntryModal';
+import { ReconRaptorModal } from './ReconRaptorModal';
+import { AIAssistant } from './AIAssistant';
+import { SignIn } from './SignIn';
+import { MOCK_INVOICES as INITIAL_DATA, TEAM_STAGES } from '../constants';
+import { Invoice, FlowStage, Evidence, TeamView, Attachment, StatusDetail, FlowType } from '../types';
+import { Plus, Upload, Search, LayoutDashboard, FileText, CheckCircle2, RefreshCw, Filter, Users, Activity, Wallet, ArrowRight, LogOut, User, ShieldCheck, Landmark, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 
 type SortKey = 'createdAt' | 'amount' | 'vendor';
@@ -21,6 +22,7 @@ const App: React.FC = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
+  const [isReconRaptorModalOpen, setIsReconRaptorModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -174,7 +176,8 @@ const App: React.FC = () => {
       createdAt: now,
       updatedAt: now,
       evidence: [],
-      paymentStatus: 'NONE'
+      paymentStatus: 'NONE',
+      paymentBlocked: false
     }));
     setInvoices(prev => [...prev, ...newInvoices]);
   };
@@ -253,7 +256,10 @@ const App: React.FC = () => {
                   <button onClick={() => setIsManualEntryModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all flex items-center gap-2"><Plus size={16} /> Add Manual</button>
                 )}
                 {activeView === 'RECON' && (
-                  <button onClick={() => setIsUploadModalOpen(true)} className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(79,70,229,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Upload Excel</button>
+                  <>
+                    <button onClick={() => setIsReconRaptorModalOpen(true)} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Zap size={16} /> ReconRaptor</button>
+                    <button onClick={() => setIsUploadModalOpen(true)} className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(79,70,229,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Deloitte Upload</button>
+                  </>
                 )}
               </div>
             </div>
@@ -336,11 +342,22 @@ const App: React.FC = () => {
 
       {isUploadModalOpen && <UploadModal onClose={() => setIsUploadModalOpen(false)} onUpload={handleBulkUpload} existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))} />}
       {isManualEntryModalOpen && (
-        <ManualEntryModal 
-          onClose={() => setIsManualEntryModalOpen(false)} 
-          onAdd={handleManualSubmit} 
-          existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))} 
+        <ManualEntryModal
+          onClose={() => setIsManualEntryModalOpen(false)}
+          onAdd={handleManualSubmit}
+          existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))}
           simplified={activeView === 'RECON'}
+        />
+      )}
+      {isReconRaptorModalOpen && (
+        <ReconRaptorModal
+          isOpen={isReconRaptorModalOpen}
+          onClose={() => setIsReconRaptorModalOpen(false)}
+          onImportComplete={() => {
+            // Refresh invoices from API if using API, or just close modal
+            setIsReconRaptorModalOpen(false);
+          }}
+          existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))}
         />
       )}
       <AIAssistant invoices={invoices} />

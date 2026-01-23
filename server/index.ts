@@ -204,6 +204,162 @@ app.post('/api/invoices/bulk-delete', authenticateToken, async (req: any, res) =
   }
 });
 
+// Bulk import from ReconRaptor - creates multiple invoices at once
+app.post('/api/invoices/bulk-import', authenticateToken, async (req: any, res) => {
+  try {
+    const { invoices, attachments } = req.body;
+
+    if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
+      return res.status(400).json({ error: 'No invoices provided' });
+    }
+
+    const profile = await getProfileById(req.user.id);
+    const createdInvoices = [];
+    const errors = [];
+
+    for (const invoiceData of invoices) {
+      try {
+        // Create invoice with MISSING_INVOICE flow type
+        const invoice = await createInvoice(
+          {
+            invoice_number: invoiceData.invoice_number,
+            vendor: invoiceData.vendor,
+            entity: invoiceData.entity,
+            amount: invoiceData.amount,
+            currency: invoiceData.currency || 'EUR',
+            flow_type: 'MISSING_INVOICE',
+            current_stage: 'MISSING_INVOICE_MISSING',
+            source: invoiceData.source || 'RECON_RAPTOR'
+          },
+          req.user.id,
+          profile?.name || req.user.email,
+          profile?.role || 'Staff'
+        );
+
+        // If attachments provided for all invoices, create evidence with attachments
+        if (attachments && (attachments.vendorStatement || attachments.erpStatement)) {
+          const evidenceContent = `Imported from ReconRaptor reconciliation.\nVendor Statement: ${attachments.vendorStatement?.name || 'N/A'}\nERP Statement: ${attachments.erpStatement?.name || 'N/A'}`;
+
+          const evidence = await createEvidence(
+            invoice.id,
+            'ATTACHMENT',
+            evidenceContent,
+            'MISSING_INVOICE_MISSING',
+            req.user.id,
+            profile?.name || req.user.email
+          );
+
+          // Add vendor statement attachment
+          if (attachments.vendorStatement) {
+            await createAttachment(
+              {
+                id: attachments.vendorStatement.id,
+                name: attachments.vendorStatement.name,
+                mimeType: attachments.vendorStatement.mimeType,
+                data: attachments.vendorStatement.data,
+                originalSize: attachments.vendorStatement.originalSize || 0,
+                compressedSize: attachments.vendorStatement.compressedSize || 0
+              },
+              evidence.id,
+              undefined
+            );
+          }
+
+          // Add ERP statement attachment
+          if (attachments.erpStatement) {
+            await createAttachment(
+              {
+                id: attachments.erpStatement.id,
+                name: attachments.erpStatement.name,
+                mimeType: attachments.erpStatement.mimeType,
+                data: attachments.erpStatement.data,
+                originalSize: attachments.erpStatement.originalSize || 0,
+                compressedSize: attachments.erpStatement.compressedSize || 0
+              },
+              evidence.id,
+              undefined
+            );
+          }
+        }
+
+        createdInvoices.push(invoice);
+      } catch (err: any) {
+        errors.push({
+          invoice_number: invoiceData.invoice_number,
+          error: err.message
+        });
+      }
+    }
+
+    res.status(201).json({
+      created: createdInvoices.length,
+      errors: errors.length,
+      invoices: createdInvoices,
+      failed: errors
+    });
+  } catch (error: any) {
+    console.error('Bulk import error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Public endpoint for ReconRaptor (uses API key instead of JWT)
+app.post('/api/external/import-missing', async (req: any, res) => {
+  try {
+    const apiKey = req.headers['x-api-key'];
+    const expectedKey = process.env.RECON_RAPTOR_API_KEY || 'recon-raptor-secret-key';
+
+    if (!apiKey || apiKey !== expectedKey) {
+      return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    const { invoices, source } = req.body;
+
+    if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
+      return res.status(400).json({ error: 'No invoices provided' });
+    }
+
+    const createdInvoices = [];
+    const errors = [];
+
+    for (const invoiceData of invoices) {
+      try {
+        const invoice = await createInvoice(
+          {
+            invoice_number: invoiceData.invoice_number || invoiceData.Invoice,
+            vendor: invoiceData.vendor || invoiceData.Vendor || 'Unknown Vendor',
+            entity: invoiceData.entity || invoiceData.Entity,
+            amount: parseFloat(invoiceData.amount || invoiceData.Amount || 0),
+            currency: invoiceData.currency || 'EUR',
+            flow_type: 'MISSING_INVOICE',
+            current_stage: 'MISSING_INVOICE_MISSING',
+            source: source || 'RECON_RAPTOR'
+          },
+          'system',
+          'ReconRaptor Import',
+          'System'
+        );
+        createdInvoices.push(invoice);
+      } catch (err: any) {
+        errors.push({
+          invoice: invoiceData.invoice_number || invoiceData.Invoice,
+          error: err.message
+        });
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      created: createdInvoices.length,
+      errors: errors.length,
+      failed: errors
+    });
+  } catch (error: any) {
+    console.error('External import error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Evidence routes
 app.get('/api/evidence/invoice/:invoiceId', authenticateToken, async (req, res) => {
   try {

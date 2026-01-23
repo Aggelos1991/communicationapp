@@ -1,74 +1,13 @@
 import React, { useMemo } from 'react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Invoice, FlowStage, FlowType } from '../types';
-// Fixed missing FileText import from lucide-react
-import { AlertCircle, CheckCircle2, Clock, Activity, Wallet, Zap, Calendar, UserCircle, Building2, AlertTriangle, FileWarning, BarChart3, ShieldCheck, Users, ArrowRight, FileText } from 'lucide-react';
-import { clsx } from 'clsx';
+import { BarChart3, ArrowRight, FileText, Clock, FileWarning } from 'lucide-react';
 
 interface DashboardProps {
   invoices: Invoice[];
   onNavigateToInvoices: () => void;
   onSelectInvoice: (invoice: Invoice) => void;
 }
-
-const StatCard = ({ title, value, subValue, icon: Icon, colorClass, delay, gradient }: any) => (
-  <div
-    className={clsx(
-      "relative overflow-hidden rounded-3xl border border-slate-700/30 p-7 backdrop-blur-xl group animate-in fade-in slide-in-from-bottom-6 fill-mode-forwards shadow-xl shadow-black/10 cursor-pointer card-3d",
-      gradient || "bg-gradient-to-br from-slate-900/80 to-slate-800/60"
-    )}
-    style={{
-      animationDelay: `${delay}ms`,
-      transformStyle: 'preserve-3d',
-      perspective: '1000px'
-    }}
-    onMouseMove={(e) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-      const rotateX = (y - centerY) / 15;
-      const rotateY = (centerX - x) / 15;
-      e.currentTarget.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(10px) scale(1.02)`;
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px) scale(1)';
-    }}
-  >
-    {/* Animated glow effect */}
-    <div className={clsx("absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 rounded-3xl blur-2xl scale-110", colorClass.replace('text-', 'bg-').concat('/20'))} />
-
-    {/* Shine effect on hover */}
-    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-    </div>
-
-    {/* Background icon with 3D depth */}
-    <div
-      className={clsx("absolute -top-6 -right-6 p-4 opacity-[0.03] group-hover:opacity-[0.1] transition-all duration-700", colorClass)}
-      style={{ transform: 'translateZ(-20px)' }}
-    >
-      <Icon size={140} strokeWidth={1} className="group-hover:scale-125 group-hover:rotate-12 transition-all duration-700" />
-    </div>
-
-    <div className="relative z-10" style={{ transform: 'translateZ(30px)' }}>
-      <div className={clsx("inline-flex p-3.5 rounded-2xl mb-5 ring-1 ring-inset ring-white/10 shadow-lg transition-all duration-500 group-hover:scale-110 group-hover:shadow-2xl", colorClass.replace('text-', 'bg-').concat('/20'))}>
-        <Icon size={26} className={clsx(colorClass, "transition-all duration-500 group-hover:drop-shadow-glow")} />
-      </div>
-      <h3 className="text-5xl font-black text-white tracking-tighter mb-2 tabular-nums transition-all duration-300 group-hover:scale-105 origin-left">{value}</h3>
-      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">{title}</p>
-      {subValue && (
-        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-700/30">
-          <div className="h-1.5 flex-1 bg-slate-800/80 rounded-full overflow-hidden">
-            <div className={clsx("h-full rounded-full transition-all duration-1000 ease-out group-hover:shadow-lg", colorClass.replace('text-', 'bg-'))} style={{ width: '65%' }}></div>
-          </div>
-          <p className="text-[10px] font-mono text-slate-500 whitespace-nowrap font-bold">{subValue}</p>
-        </div>
-      )}
-    </div>
-  </div>
-);
 
 export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvoices, onSelectInvoice }) => {
   const stats = useMemo(() => {
@@ -77,249 +16,213 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvo
       active: 0,
       totalValue: 0,
       missing: 0,
+      missingValue: 0,
       pendingPO: 0,
-      readyPost: 0,
-      paymentValidation: 0,
-      exrPending: 0,
-      withoutPo: 0,
-      closed: 0,
+      pendingPOValue: 0,
     };
 
     invoices.forEach(inv => {
-      // Handle closed invoices
-      if (inv.currentStage === FlowStage.CLOSED) {
-        if (inv.paymentStatus === 'PAID') s.closed++;
-        return;
-      }
+      // Check if closed (case insensitive)
+      const isClosed = inv.currentStage === FlowStage.CLOSED ||
+                       inv.currentStage === 'Closed' ||
+                       (typeof inv.currentStage === 'string' && inv.currentStage.toLowerCase() === 'closed');
+      if (isClosed) return;
 
-      s.totalValue += inv.amount || 0;
-
-      // Payment Queue: Invoices with payment requested
-      if (inv.paymentStatus === 'REQUESTED') {
-        s.paymentValidation++;
-        s.active++;
-        return;
-      }
-
-      // Active invoices
+      // Parse amount robustly
+      const amount = typeof inv.amount === 'number' ? inv.amount : parseFloat(String(inv.amount)) || 0;
+      s.totalValue += amount;
       s.active++;
 
-      // Missing Invoices: Only MISSING_INVOICE flow in RECON stages
-      if (inv.flowType === FlowType.MISSING_INVOICE &&
-          (inv.currentStage === FlowStage.MISSING_INVOICE_MISSING ||
-           inv.currentStage === FlowStage.MISSING_INVOICE_SENT_TO_AP)) {
+      // Missing Invoices - MISSING_INVOICE flow type (not closed)
+      const isMissing = inv.flowType === FlowType.MISSING_INVOICE ||
+                        inv.flowType === 'MISSING_INVOICE' ||
+                        (typeof inv.flowType === 'string' && inv.flowType.toUpperCase() === 'MISSING_INVOICE');
+      if (isMissing) {
         s.missing++;
+        s.missingValue += amount;
       }
 
-      // PO Pendings: Count PO_PENDING_CREATED, PO_PENDING_EXR_CREATED, and WITHOUT PO items
-      if (inv.currentStage === FlowStage.PO_PENDING_CREATED ||
-          inv.currentStage === FlowStage.PO_PENDING_EXR_CREATED ||
-          inv.statusDetail === 'WITHOUT PO') {
+      // PO Pending - based on currentStage being "PO Pending" or MISSING_INVOICE_PO_PENDING
+      const isPOPending = inv.currentStage === FlowStage.MISSING_INVOICE_PO_PENDING ||
+                          inv.currentStage === 'PO Pending' ||
+                          (typeof inv.currentStage === 'string' && inv.currentStage.toLowerCase() === 'po pending');
+      if (isPOPending) {
         s.pendingPO++;
+        s.pendingPOValue += amount;
       }
-
-      // EXR Pending and WITHOUT PO status details
-      if (inv.statusDetail === 'EXR PENDING') s.exrPending++;
-      if (inv.statusDetail === 'WITHOUT PO') s.withoutPo++;
-
-      // Ready to Post: Items in Posted stage
-      if (inv.currentStage === FlowStage.MISSING_INVOICE_POSTED) s.readyPost++;
     });
 
     return s;
   }, [invoices]);
 
-  const topMissingVendors = useMemo(() => {
+  // Vendor Exposure - Missing invoices grouped by vendor
+  const vendorExposure = useMemo(() => {
     const vendors: Record<string, number> = {};
-    invoices
-      .filter(i => i.flowType === FlowType.MISSING_INVOICE && i.currentStage !== FlowStage.CLOSED)
-      .forEach(i => {
-        vendors[i.vendor] = (vendors[i.vendor] || 0) + (i.amount || 0);
-      });
+
+    // Debug: log all invoices to understand data structure
+    console.log('Dashboard invoices count:', invoices.length);
+    if (invoices.length > 0) {
+      console.log('Sample invoice:', JSON.stringify(invoices[0], null, 2));
+      console.log('All flowTypes:', [...new Set(invoices.map(i => i.flowType))]);
+    }
+
+    const missingInvoices = invoices.filter(i => {
+      // Check both exact enum match and string equality (case insensitive)
+      const isMissing = i.flowType === FlowType.MISSING_INVOICE ||
+                        i.flowType === 'MISSING_INVOICE' ||
+                        (typeof i.flowType === 'string' && i.flowType.toUpperCase() === 'MISSING_INVOICE');
+      const isNotClosed = i.currentStage !== FlowStage.CLOSED && i.currentStage !== 'Closed';
+      return isMissing && isNotClosed;
+    });
+
+    console.log('Missing invoices for vendor exposure:', missingInvoices.length);
+    if (missingInvoices.length > 0) {
+      console.log('Missing invoices sample:', missingInvoices.slice(0, 3).map(i => ({
+        vendor: i.vendor,
+        amount: i.amount,
+        flowType: i.flowType,
+        currentStage: i.currentStage
+      })));
+    }
+
+    missingInvoices.forEach(i => {
+      const vendorName = i.vendor && i.vendor.trim() ? i.vendor.trim() : 'Unknown';
+      const amount = typeof i.amount === 'number' ? i.amount : parseFloat(String(i.amount)) || 0;
+      vendors[vendorName] = (vendors[vendorName] || 0) + amount;
+    });
+
+    console.log('Vendor exposure data:', vendors);
+
     return Object.entries(vendors)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ name: name.length > 20 ? name.substring(0, 20) + '...' : name, fullName: name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .slice(0, 10);
   }, [invoices]);
 
-  const poCreatorBottleneck = useMemo(() => {
-    const data: Record<string, number> = {};
-    invoices
-      .filter(i => i.poCreator && i.currentStage !== FlowStage.CLOSED)
-      .forEach(i => {
-        data[i.poCreator!] = (data[i.poCreator!] || 0) + (i.amount || 0);
-      });
-    return Object.entries(data)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
-  }, [invoices]);
-
-  const formatEuro = (val: number) => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
+  const formatEuro = (val: number) => {
+    if (isNaN(val) || val === null || val === undefined) return '€0';
+    return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
+  };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
+    <div className="space-y-6 animate-in fade-in duration-500">
 
-      {/* Dynamic Header with 3D effects */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-10 border-b border-slate-800/30">
-        <div className="space-y-4">
-          <div className="flex items-center gap-4 group">
-             <div className="relative" style={{ transformStyle: 'preserve-3d' }}>
-               <div className="absolute inset-0 bg-brand-500 rounded-2xl blur-xl opacity-40 group-hover:opacity-70 animate-pulse-glow" />
-               <div
-                 className="relative p-3.5 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl shadow-2xl shadow-brand-900/40 transition-transform duration-500 group-hover:scale-110"
-                 style={{ transform: 'translateZ(20px)' }}
-               >
-                 <Activity className="text-white animate-pulse" size={28} />
-               </div>
-             </div>
-             <div>
-               <h2 className="text-4xl font-black bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent tracking-tight bg-size-200 animate-gradient-x">Command Center</h2>
-               <p className="text-slate-500 font-bold text-sm uppercase tracking-[0.2em] mt-1">Financial Operations Dashboard</p>
-             </div>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between pb-6 border-b border-slate-800/50">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Overview</h2>
+          <p className="text-sm text-slate-400 mt-1">Financial operations summary</p>
         </div>
-        <div
-          className="flex items-center gap-6 bg-slate-900/50 px-6 py-4 rounded-2xl border border-slate-800/50 backdrop-blur-sm hover:bg-slate-800/50 transition-all duration-500 group neon-glow"
-          style={{
-            transformStyle: 'preserve-3d',
-            transition: 'all 0.5s cubic-bezier(0.23, 1, 0.32, 1)'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'perspective(1000px) rotateY(-3deg) translateZ(10px)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'perspective(1000px) rotateY(0deg) translateZ(0px)'}
+        <button
+          onClick={onNavigateToInvoices}
+          className="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all"
         >
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Pipeline Value</p>
-            <p className="text-3xl font-black text-white tabular-nums group-hover:scale-105 transition-transform duration-300">{formatEuro(stats.totalValue)}</p>
-          </div>
-          <div className="w-px h-12 bg-slate-700/50" />
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Active Invoices</p>
-            <p className="text-3xl font-black text-emerald-400 tabular-nums group-hover:scale-105 transition-transform duration-300">{stats.active}</p>
-          </div>
-        </div>
+          View All Invoices <ArrowRight size={14} />
+        </button>
       </div>
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Missing Invoices" value={stats.missing} subValue="Reconciliation Queue" icon={FileWarning} colorClass="text-rose-500" delay={0} gradient="bg-gradient-to-br from-rose-950/10 to-slate-900/40" />
-        <StatCard title="PO Pendings" value={stats.pendingPO} subValue="Procurement Queue" icon={Clock} colorClass="text-amber-500" delay={100} gradient="bg-gradient-to-br from-amber-950/10 to-slate-900/40" />
-        <StatCard title="EXR Pending" value={stats.exrPending} subValue="Expenses Review" icon={ShieldCheck} colorClass="text-cyan-500" delay={200} gradient="bg-gradient-to-br from-cyan-950/10 to-slate-900/40" />
-        <StatCard title="Payment Queue" value={stats.paymentValidation} subValue="Treasury Workflow" icon={Wallet} colorClass="text-violet-500" delay={300} gradient="bg-gradient-to-br from-violet-950/10 to-slate-900/40" />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        
-        {/* Left Column - Large Charts */}
-        <div className="xl:col-span-2 space-y-8">
-          
-          {/* Top Missing Vendors */}
-          <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/40 border border-slate-700/30 rounded-3xl p-8 backdrop-blur-xl relative overflow-hidden group shadow-2xl shadow-black/10">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-500 via-rose-600 to-rose-700 rounded-full"></div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl" />
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h4 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
-                  <div className="p-2 bg-rose-500/10 rounded-xl">
-                    <BarChart3 className="text-rose-400" size={20} />
-                  </div>
-                  Top Missing Vendor Exposure
-                </h4>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-[0.15em] mt-2 ml-12">Outstanding invoice values by vendor</p>
-              </div>
+      {/* Quick Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Total Active */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Active Invoices</p>
+              <p className="text-3xl font-bold text-white mt-1">{stats.active}</p>
+              <p className="text-xs text-slate-500 mt-1">{formatEuro(stats.totalValue)} total value</p>
             </div>
-            
-            <div className="h-[280px]">
-              {topMissingVendors.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topMissingVendors} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: '600' }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={formatEuro} />
-                    <Tooltip 
-                      cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                      content={({ active, payload }) => {
-                        if (active && payload?.length) return (
-                          <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl shadow-2xl">
-                            <p className="text-slate-300 text-[10px] uppercase font-bold mb-1">{payload[0].payload.name}</p>
-                            <p className="text-rose-400 text-xl font-black">{formatEuro(payload[0].value as number)}</p>
-                          </div>
-                        );
-                        return null;
-                      }}
-                    />
-                    <Bar dataKey="value" fill="url(#roseGradient)" radius={[6, 6, 0, 0]} barSize={40} />
-                    <defs>
-                      <linearGradient id="roseGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f43f5e" />
-                        <stop offset="100%" stopColor="#881337" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 italic">No missing invoices currently tracked.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* PO Creator Bottleneck - Full Width */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm relative group lg:col-span-2">
-              <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50"></div>
-              <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-8 flex items-center gap-2">
-                <Users size={16} className="text-amber-500" /> Procurement Bottlenecks
-              </h4>
-              <div className="h-[220px]">
-                {poCreatorBottleneck.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={poCreatorBottleneck} layout="vertical" margin={{ left: -10, right: 30 }}>
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#cbd5e1', fontSize: 11, fontWeight: '700' }} axisLine={false} tickLine={false} />
-                      <Tooltip formatter={(val: number) => formatEuro(val)} />
-                      <Bar dataKey="value" fill="#f59e0b" radius={[0, 6, 6, 0]} barSize={18} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">All POs processed.</div>
-                )}
-              </div>
+            <div className="p-3 bg-slate-700/50 rounded-xl">
+              <FileText className="text-slate-400" size={24} />
             </div>
           </div>
         </div>
 
-        {/* Right Column - Status Detail & Alerts */}
-        <div className="space-y-8">
+        {/* Missing Invoices */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Missing Invoices</p>
+              <p className="text-3xl font-bold text-rose-400 mt-1">{stats.missing}</p>
+              <p className="text-xs text-slate-500 mt-1">{formatEuro(stats.missingValue)} exposure</p>
+            </div>
+            <div className="p-3 bg-rose-500/10 rounded-xl">
+              <FileWarning className="text-rose-400" size={24} />
+            </div>
+          </div>
+        </div>
 
-           {/* Detail Cards - EXR vs WITHOUT PO */}
-           <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl text-center shadow-lg">
-                 <p className="text-3xl font-black text-white">{stats.exrPending}</p>
-                 <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mt-1">EXR PENDING</p>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl text-center shadow-lg">
-                 <p className="text-3xl font-black text-white">{stats.withoutPo}</p>
-                 <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mt-1">WITHOUT PO</p>
-              </div>
-           </div>
+        {/* PO Pending */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">PO Pending</p>
+              <p className="text-3xl font-bold text-amber-400 mt-1">{stats.pendingPO}</p>
+              <p className="text-xs text-slate-500 mt-1">{formatEuro(stats.pendingPOValue)} value</p>
+            </div>
+            <div className="p-3 bg-amber-500/10 rounded-xl">
+              <Clock className="text-amber-400" size={24} />
+            </div>
+          </div>
+        </div>
+      </div>
 
-           {/* Quick Navigation Panel */}
-           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
-             <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                <FileText size={80} className="text-brand-500" />
-             </div>
-             <h4 className="text-xs font-black text-brand-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                Actions Hub
-             </h4>
-             <div className="space-y-3">
-               <button onClick={onNavigateToInvoices} className="w-full py-4 bg-slate-800 hover:bg-brand-600 text-slate-200 hover:text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border border-slate-700 hover:border-brand-500 shadow-xl">
-                 Go to Invoices Queue <ArrowRight size={16} />
-               </button>
-               <p className="text-[10px] text-slate-500 font-bold text-center uppercase tracking-widest mt-4">
-                 Manage processing across entities
-               </p>
-             </div>
-           </div>
+      {/* Vendor Exposure Chart */}
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-500/10 rounded-lg">
+              <BarChart3 className="text-rose-400" size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Vendor Exposure</h3>
+              <p className="text-xs text-slate-500">Missing invoice value by vendor</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-[300px]">
+          {vendorExposure.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={vendorExposure} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 500 }}
+                  dy={10}
+                  angle={-30}
+                  textAnchor="end"
+                  height={70}
+                  interval={0}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 10 }}
+                  tickFormatter={formatEuro}
+                  width={70}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                  content={({ active, payload }) => {
+                    if (active && payload?.length) return (
+                      <div className="bg-slate-900 border border-slate-700 px-4 py-3 rounded-lg shadow-xl">
+                        <p className="text-slate-400 text-xs font-medium mb-1">{payload[0].payload.fullName}</p>
+                        <p className="text-rose-400 text-lg font-bold">{formatEuro(payload[0].value as number)}</p>
+                      </div>
+                    );
+                    return null;
+                  }}
+                />
+                <Bar dataKey="value" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={28} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+              No vendor exposure data available
+            </div>
+          )}
         </div>
       </div>
     </div>
