@@ -560,23 +560,39 @@ const App: React.FC = () => {
     }
   };
 
-  const TabButton = ({ view, label, icon: Icon, colorClass }: { view: TeamView, label: string, icon: any, colorClass: string }) => (
-    <button
-      onClick={() => setActiveView(view)}
-      className={clsx(
-        "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold uppercase tracking-tight flex items-center transition-all duration-200 border",
-        activeView === view
-          ? `bg-slate-800 border-slate-600 text-white shadow-lg ${colorClass}`
-          : "bg-transparent border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-      )}
-    >
-      <Icon size={16} />
-      {label}
-      <span className={clsx("ml-1.5 text-xs px-2 py-0.5 rounded-md font-mono font-medium", activeView === view ? "bg-slate-950 text-white border border-slate-700" : "bg-slate-900/50 text-slate-500 border border-slate-800")}>
-        {viewCounts[view]}
-      </span>
-    </button>
-  );
+  const TabButton = ({ view, label, icon: Icon, colorClass }: { view: TeamView, label: string, icon: any, colorClass: string }) => {
+    const isActive = activeView === view;
+    const gradientMap: Record<TeamView, string> = {
+      'RECON': 'from-emerald-600 to-teal-600',
+      'AP': 'from-brand-600 to-indigo-600',
+      'PAYMENT': 'from-violet-600 to-purple-600',
+      'ALL': 'from-slate-600 to-slate-500'
+    };
+
+    return (
+      <button
+        onClick={() => setActiveView(view)}
+        className={clsx(
+          "group relative flex items-center gap-2.5 px-5 py-3 rounded-xl text-sm font-bold uppercase tracking-wide transition-all duration-300 overflow-hidden",
+          isActive
+            ? `bg-gradient-to-r ${gradientMap[view]} text-white shadow-xl`
+            : "bg-transparent text-slate-400 hover:text-white hover:bg-slate-800/60"
+        )}
+      >
+        {isActive && <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />}
+        <Icon size={16} className={clsx("relative z-10 transition-transform duration-300", isActive && "scale-110")} />
+        <span className="relative z-10">{label}</span>
+        <span className={clsx(
+          "relative z-10 ml-1 text-xs px-2.5 py-1 rounded-lg font-mono font-bold transition-all duration-300",
+          isActive
+            ? "bg-white/20 text-white"
+            : "bg-slate-800/80 text-slate-500 group-hover:bg-slate-700 group-hover:text-slate-300"
+        )}>
+          {viewCounts[view]}
+        </span>
+      </button>
+    );
+  };
 
   const handleSignOut = async () => {
     try {
@@ -607,57 +623,95 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 font-sans selection:bg-brand-500/30">
-      <header className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-3">
-              <div className="bg-brand-600 p-2 rounded-lg shadow-lg shadow-brand-900/20"><Activity className="text-white" size={20} /></div>
-              <h1 className="text-xl font-extrabold tracking-tighter text-white hidden md:block" style={{letterSpacing: '-0.04em'}}>FinComms</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50 font-sans selection:bg-brand-500/30">
+      {/* Animated background gradient */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-600/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-emerald-600/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-violet-600/5 rounded-full blur-3xl" />
+      </div>
+
+      <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur-2xl border-b border-slate-800/50 shadow-2xl shadow-black/20">
+        <div className="max-w-[1600px] mx-auto px-6 h-[70px] flex items-center justify-between">
+          <div className="flex items-center gap-10">
+            <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setCurrentPage('dashboard')}>
+              <div className="relative">
+                <div className="absolute inset-0 bg-brand-500 rounded-xl blur-lg opacity-50 group-hover:opacity-80 transition-opacity" />
+                <div className="relative bg-gradient-to-br from-brand-500 to-brand-700 p-2.5 rounded-xl shadow-lg">
+                  <Activity className="text-white" size={22} />
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <h1 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">FinComms</h1>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em] -mt-0.5">Invoice Management</p>
+              </div>
             </div>
-            <nav className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-              <button onClick={() => setCurrentPage('dashboard')} className={clsx("px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-tight flex items-center gap-2 transition-all", currentPage === 'dashboard' ? "bg-brand-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}><LayoutDashboard size={16} /> Dashboard</button>
-              <button onClick={() => setCurrentPage('invoices')} className={clsx("px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-tight flex items-center gap-2 transition-all", currentPage === 'invoices' ? "bg-brand-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}><FileText size={16} /> Invoices</button>
+            <nav className="flex items-center gap-1 bg-slate-950/60 p-1.5 rounded-2xl border border-slate-800/50 backdrop-blur-sm">
+              <button onClick={() => setCurrentPage('dashboard')} className={clsx("px-5 py-2 rounded-xl text-sm font-bold uppercase tracking-wide flex items-center gap-2 transition-all duration-300", currentPage === 'dashboard' ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-900/40" : "text-slate-400 hover:text-white hover:bg-slate-800/70")}><LayoutDashboard size={16} /> Dashboard</button>
+              <button onClick={() => setCurrentPage('invoices')} className={clsx("px-5 py-2 rounded-xl text-sm font-bold uppercase tracking-wide flex items-center gap-2 transition-all duration-300", currentPage === 'invoices' ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-900/40" : "text-slate-400 hover:text-white hover:bg-slate-800/70")}><FileText size={16} /> Invoices</button>
             </nav>
           </div>
-          
-          <div className="flex items-center gap-2">
-             <button onClick={() => setIsSettingsOpen(true)} className="p-2.5 text-slate-400 hover:text-brand-400 hover:bg-slate-800 rounded-xl transition-all" title="Settings">
+
+          <div className="flex items-center gap-3">
+             <div className="hidden sm:flex items-center gap-3 bg-slate-800/40 px-4 py-2 rounded-xl border border-slate-700/50">
+               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm">
+                 {user?.email?.charAt(0).toUpperCase() || 'U'}
+               </div>
+               <div className="text-right">
+                 <p className="text-xs font-bold text-white">{user?.email?.split('@')[0] || 'User'}</p>
+                 <p className="text-[10px] text-slate-500 uppercase tracking-wider">{user?.role || 'Member'}</p>
+               </div>
+             </div>
+             <button onClick={() => setIsSettingsOpen(true)} className="p-3 text-slate-400 hover:text-brand-400 hover:bg-slate-800/60 rounded-xl transition-all duration-200 border border-transparent hover:border-slate-700" title="Settings">
                 <Settings size={18} />
              </button>
-             <button onClick={handleSignOut} className="p-2.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-xl transition-all" title="Sign Out">
+             <button onClick={handleSignOut} className="p-3 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded-xl transition-all duration-200 border border-transparent hover:border-red-900/50" title="Sign Out">
                 <LogOut size={18} />
              </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="relative max-w-[1600px] mx-auto px-6 py-8">
         {currentPage === 'dashboard' ? (
           <Dashboard invoices={invoices} onNavigateToInvoices={() => setCurrentPage('invoices')} onSelectInvoice={setSelectedInvoice} />
         ) : (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center">
-              <div className="flex flex-wrap gap-2 p-1.5 bg-slate-900/80 rounded-2xl border border-slate-800 backdrop-blur-sm shadow-xl">
-                <TabButton view="RECON" label="Reconciliation" icon={CheckCircle2} colorClass="text-emerald-400" />
-                <TabButton view="AP" label="AP Processing" icon={RefreshCw} colorClass="text-brand-400" />
-                <TabButton view="PAYMENT" label="Payment Queue" icon={Wallet} colorClass="text-violet-400" />
-                <TabButton view="ALL" label="All Entries" icon={Users} colorClass="text-slate-200" />
-              </div>
-              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                <div className="relative flex-1 min-w-[240px]">
-                  <Search className="absolute left-3 top-2.5 text-slate-400" size={16} aria-hidden="true" />
-                  <input type="text" placeholder="Search Invoices or Vendors..." className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500/50 outline-none transition-all shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Queue Header */}
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center">
+                {/* Tab Navigation */}
+                <div className="flex flex-wrap gap-2 p-2 bg-slate-900/60 rounded-2xl border border-slate-800/50 backdrop-blur-xl shadow-2xl shadow-black/20">
+                  <TabButton view="RECON" label="Reconciliation" icon={CheckCircle2} colorClass="text-emerald-400" />
+                  <TabButton view="AP" label="AP Processing" icon={RefreshCw} colorClass="text-brand-400" />
+                  <TabButton view="PAYMENT" label="Payment Queue" icon={Wallet} colorClass="text-violet-400" />
+                  <TabButton view="ALL" label="All Entries" icon={Users} colorClass="text-slate-200" />
                 </div>
-                {activeView === 'RECON' && (
-                  <>
-                    <button onClick={() => setIsManualEntryModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all flex items-center gap-2"><Plus size={16} /> Add Manual</button>
-                    <button onClick={() => setIsDeloitteUploadOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Deloitte Upload</button>
-                  </>
-                )}
-                {activeView === 'AP' && (
-                  <button onClick={() => setIsUploadModalAPOpen(true)} className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(234,88,12,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Import Excel</button>
-                )}
+
+                {/* Actions */}
+                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                  <div className="relative flex-1 min-w-[280px] group">
+                    <Search className="absolute left-4 top-3 text-slate-500 group-focus-within:text-brand-400 transition-colors" size={18} aria-hidden="true" />
+                    <input type="text" placeholder="Search invoices, vendors..." className="w-full bg-slate-900/80 border border-slate-700/50 rounded-2xl pl-12 pr-5 py-3 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/50 outline-none transition-all duration-300 shadow-lg shadow-black/10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  </div>
+                  {activeView === 'RECON' && (
+                    <>
+                      <button onClick={() => setIsManualEntryModalOpen(true)} className="group bg-slate-800/80 hover:bg-slate-700 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider border border-slate-700/50 shadow-xl transition-all duration-300 flex items-center gap-2 hover:scale-[1.02] hover:shadow-2xl">
+                        <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" /> Add Manual
+                      </button>
+                      <button onClick={() => setIsDeloitteUploadOpen(true)} className="group relative overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-emerald-900/30 transition-all duration-300 flex items-center gap-2 hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-900/40">
+                        <Upload size={16} className="group-hover:-translate-y-0.5 transition-transform duration-300" /> Deloitte Upload
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                      </button>
+                    </>
+                  )}
+                  {activeView === 'AP' && (
+                    <button onClick={() => setIsUploadModalAPOpen(true)} className="group relative overflow-hidden bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider shadow-xl shadow-orange-900/30 transition-all duration-300 flex items-center gap-2 hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-900/40">
+                      <Upload size={16} className="group-hover:-translate-y-0.5 transition-transform duration-300" /> Import Excel
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

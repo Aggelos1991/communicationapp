@@ -264,26 +264,28 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
   const hasActiveFilters = Object.values(filters).some(f => f !== 'ALL');
 
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-sm">
+    <div className="bg-gradient-to-b from-slate-800/80 to-slate-900/80 rounded-3xl border border-slate-700/50 overflow-hidden shadow-2xl shadow-black/20 backdrop-blur-xl">
       {/* Filter Toggle and Controls */}
-      <div className="bg-slate-900/50 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
+      <div className="bg-slate-900/40 border-b border-slate-700/50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={clsx(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
-              showFilters ? "bg-brand-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+              "group flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300",
+              showFilters
+                ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-900/30"
+                : "bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700/50"
             )}
           >
-            <Filter size={16} />
-            Filters {hasActiveFilters && `(${Object.values(filters).filter(f => f !== 'ALL').length})`}
+            <Filter size={16} className={clsx("transition-transform duration-300", showFilters && "rotate-180")} />
+            Filters {hasActiveFilters && <span className="bg-white/20 px-2 py-0.5 rounded-md text-xs">{Object.values(filters).filter(f => f !== 'ALL').length}</span>}
           </button>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-2 px-3 py-1.5 bg-red-900/30 hover:bg-red-900/50 text-red-300 rounded-lg text-xs font-semibold transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-400 rounded-xl text-xs font-bold transition-all duration-300 border border-red-900/30"
             >
-              <X size={14} /> Clear All Filters
+              <X size={14} /> Clear Filters
             </button>
           )}
         </div>
@@ -291,19 +293,20 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
           onClick={() => exportToExcel(filteredInvoices, activeView || 'ALL')}
           disabled={filteredInvoices.length === 0}
           className={clsx(
-            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
+            "group relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 overflow-hidden",
             filteredInvoices.length > 0
-              ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30"
-              : "bg-slate-700 text-slate-500 cursor-not-allowed"
+              ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30 hover:shadow-xl"
+              : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"
           )}
         >
-          <Download size={16} />
+          <Download size={16} className="group-hover:-translate-y-0.5 transition-transform duration-300" />
           Export to Excel
           {filteredInvoices.length > 0 && (
-            <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-md text-xs">
+            <span className="ml-1 px-2.5 py-1 bg-white/20 rounded-lg text-xs font-bold">
               {filteredInvoices.length}
             </span>
           )}
+          {filteredInvoices.length > 0 && <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />}
         </button>
       </div>
 
@@ -502,37 +505,42 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
       )}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-slate-900/70 text-slate-200 uppercase tracking-wide text-[10px] font-semibold border-b border-slate-700">
+          <thead className="bg-gradient-to-r from-slate-900/90 to-slate-800/90 text-slate-300 uppercase tracking-wider text-[10px] font-bold border-b border-slate-700/50">
             <tr>
               {(onBulkDelete || onBulkUpdateStage || onBulkUpdatePaymentBlocked) && (
-                <th className="px-4 py-4 w-12">
+                <th className="px-5 py-5 w-12">
                   <input
                     type="checkbox"
                     checked={selectedIds.size === filteredInvoices.length && filteredInvoices.length > 0}
                     onChange={toggleSelectAll}
-                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                    className="w-4 h-4 rounded-md border-slate-600 bg-slate-800 text-brand-600 focus:ring-brand-500 focus:ring-offset-slate-900 cursor-pointer transition-all"
                   />
                 </th>
               )}
-              <th className="px-6 py-4">Processing Date</th>
-              <th className="px-6 py-4">Entity</th>
-              <th className="px-6 py-4">Invoice #</th>
-              <th className="px-6 py-4">Vendor</th>
-              <th className="px-6 py-4">Amount</th>
-              <th className="px-6 py-4">Status</th>
-              {activeView === 'RECON' && <th className="px-6 py-4 text-center">Payment</th>}
-              <th className="px-6 py-4 text-right">Actions</th>
+              <th className="px-6 py-5">Date</th>
+              <th className="px-6 py-5">Entity</th>
+              <th className="px-6 py-5">Invoice #</th>
+              <th className="px-6 py-5">Vendor</th>
+              <th className="px-6 py-5">Amount</th>
+              <th className="px-6 py-5">Status</th>
+              {activeView === 'RECON' && <th className="px-6 py-5 text-center">Payment</th>}
+              <th className="px-6 py-5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/50">
+          <tbody className="divide-y divide-slate-700/30">
             {filteredInvoices.length === 0 ? (
               <tr>
-                <td colSpan={(onBulkDelete || onBulkUpdateStage || onBulkUpdatePaymentBlocked) ? (activeView === 'RECON' ? 9 : 8) : (activeView === 'RECON' ? 8 : 7)} className="px-6 py-12 text-center text-slate-400 italic">
-                  {hasActiveFilters ? 'No invoices match the selected filters.' : 'No invoices found in this queue.'}
+                <td colSpan={(onBulkDelete || onBulkUpdateStage || onBulkUpdatePaymentBlocked) ? (activeView === 'RECON' ? 9 : 8) : (activeView === 'RECON' ? 8 : 7)} className="px-6 py-16 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center">
+                      <FileText size={28} className="text-slate-600" />
+                    </div>
+                    <p className="text-slate-400 font-medium">{hasActiveFilters ? 'No invoices match the selected filters.' : 'No invoices found in this queue.'}</p>
+                  </div>
                 </td>
               </tr>
             ) : (
-              filteredInvoices.map((invoice) => {
+              filteredInvoices.map((invoice, index) => {
                 const timestamp = new Date(invoice.submissionTimestamp || invoice.createdAt).toLocaleString([], {
                   month: 'short',
                   day: 'numeric',
@@ -544,34 +552,37 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                   <tr
                     key={invoice.id}
                     className={clsx(
-                      "hover:bg-slate-700/40 transition-colors group cursor-pointer",
-                      selectedIds.has(invoice.id) && "bg-brand-900/20"
+                      "group cursor-pointer transition-all duration-200",
+                      selectedIds.has(invoice.id)
+                        ? "bg-brand-900/30 hover:bg-brand-900/40"
+                        : "hover:bg-slate-800/60"
                     )}
                     onClick={() => onSelectInvoice(invoice)}
+                    style={{ animationDelay: `${index * 30}ms` }}
                   >
                     {(onBulkDelete || onBulkUpdateStage || onBulkUpdatePaymentBlocked) && (
-                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedIds.has(invoice.id)}
                           onChange={(e) => toggleSelection(invoice.id, e as any)}
-                          className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                          className="w-4 h-4 rounded-md border-slate-600 bg-slate-800 text-brand-600 focus:ring-brand-500 focus:ring-offset-slate-900 cursor-pointer transition-all"
                         />
                       </td>
                     )}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 text-slate-300 font-mono text-xs">
+                      <div className="flex items-center gap-2 text-slate-400 font-mono text-xs bg-slate-800/40 px-3 py-1.5 rounded-lg w-fit">
                          <Clock size={12} className="text-brand-400" aria-hidden="true" />
                          {timestamp}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm">
-                        <Building2 size={10} className="text-brand-400" aria-hidden="true" />
+                      <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-3 py-1.5 rounded-lg border border-slate-700/50 text-white font-bold text-xs inline-flex items-center gap-2 shadow-lg">
+                        <Building2 size={12} className="text-brand-400" aria-hidden="true" />
                         {invoice.entity || 'N/A'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-white whitespace-nowrap tracking-tight">
+                    <td className="px-6 py-4 font-bold text-white whitespace-nowrap tracking-tight text-base">
                       {invoice.invoiceNumber}
                     </td>
                     <td className="px-6 py-4 text-slate-200">

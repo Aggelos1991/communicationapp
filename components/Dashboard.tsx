@@ -12,28 +12,33 @@ interface DashboardProps {
 }
 
 const StatCard = ({ title, value, subValue, icon: Icon, colorClass, delay, gradient }: any) => (
-  <div 
+  <div
     className={clsx(
-      "relative overflow-hidden rounded-2xl border border-slate-700/50 p-6 backdrop-blur-sm transition-all hover:scale-[1.02] duration-300 group animate-in fade-in slide-in-from-bottom-4 fill-mode-forwards",
-      gradient || "bg-slate-900/40"
+      "relative overflow-hidden rounded-3xl border border-slate-700/30 p-7 backdrop-blur-xl transition-all hover:scale-[1.03] hover:-translate-y-1 duration-500 group animate-in fade-in slide-in-from-bottom-6 fill-mode-forwards shadow-xl shadow-black/10 hover:shadow-2xl hover:shadow-black/20",
+      gradient || "bg-gradient-to-br from-slate-900/80 to-slate-800/60"
     )}
     style={{ animationDelay: `${delay}ms` }}
   >
-    <div className={clsx("absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500", colorClass)}>
-      <Icon size={120} />
+    {/* Glow effect */}
+    <div className={clsx("absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl blur-xl", colorClass.replace('text-', 'bg-').concat('/10'))} />
+
+    {/* Background icon */}
+    <div className={clsx("absolute -top-6 -right-6 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-all transform group-hover:scale-125 group-hover:rotate-12 duration-700", colorClass)}>
+      <Icon size={140} strokeWidth={1} />
     </div>
+
     <div className="relative z-10">
-      <div className={clsx("inline-flex p-3 rounded-xl bg-slate-800/80 mb-4 ring-1 ring-inset ring-white/10 shadow-lg", colorClass)}>
-        <Icon size={24} />
+      <div className={clsx("inline-flex p-3.5 rounded-2xl mb-5 ring-1 ring-inset ring-white/10 shadow-lg transition-transform group-hover:scale-110 duration-300", colorClass.replace('text-', 'bg-').concat('/20'))}>
+        <Icon size={26} className={colorClass} />
       </div>
-      <h3 className="text-4xl font-black text-white tracking-tighter mb-1">{value}</h3>
-      <p className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-2">{title}</p>
+      <h3 className="text-5xl font-black text-white tracking-tighter mb-2 tabular-nums">{value}</h3>
+      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">{title}</p>
       {subValue && (
-        <div className="flex items-center gap-2 mt-3">
-          <div className="h-1 flex-1 bg-slate-800 rounded-full overflow-hidden">
-            <div className={clsx("h-full rounded-full transition-all duration-1000", colorClass.replace('text-', 'bg-'))} style={{ width: '65%' }}></div>
+        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-700/30">
+          <div className="h-1.5 flex-1 bg-slate-800/80 rounded-full overflow-hidden">
+            <div className={clsx("h-full rounded-full transition-all duration-1000 ease-out", colorClass.replace('text-', 'bg-'))} style={{ width: '65%' }}></div>
           </div>
-          <p className="text-[10px] font-mono text-slate-400 whitespace-nowrap">{subValue}</p>
+          <p className="text-[10px] font-mono text-slate-500 whitespace-nowrap font-bold">{subValue}</p>
         </div>
       )}
     </div>
@@ -128,18 +133,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvo
   const formatEuro = (val: number) => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      
+    <div className="space-y-10 animate-in fade-in duration-700">
+
       {/* Dynamic Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 border-b border-slate-800/50">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-             <div className="p-2 bg-brand-600 rounded-lg shadow-lg shadow-brand-900/30">
-               <Activity className="text-white" size={24} />
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-10 border-b border-slate-800/30">
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+             <div className="relative">
+               <div className="absolute inset-0 bg-brand-500 rounded-2xl blur-xl opacity-40" />
+               <div className="relative p-3.5 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl shadow-2xl shadow-brand-900/40">
+                 <Activity className="text-white" size={28} />
+               </div>
              </div>
-             <h2 className="text-4xl font-black text-white tracking-tighter">Finance Command Center</h2>
+             <div>
+               <h2 className="text-4xl font-black bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent tracking-tight">Command Center</h2>
+               <p className="text-slate-500 font-bold text-sm uppercase tracking-[0.2em] mt-1">Financial Operations Dashboard</p>
+             </div>
           </div>
-          <p className="text-slate-300 font-medium text-lg ml-11">Real-time procurement & posting orchestration.</p>
+        </div>
+        <div className="flex items-center gap-6 bg-slate-900/50 px-6 py-4 rounded-2xl border border-slate-800/50 backdrop-blur-sm">
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Pipeline Value</p>
+            <p className="text-3xl font-black text-white tabular-nums">{formatEuro(stats.totalValue)}</p>
+          </div>
+          <div className="w-px h-12 bg-slate-700/50" />
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Active Invoices</p>
+            <p className="text-3xl font-black text-emerald-400 tabular-nums">{stats.active}</p>
+          </div>
         </div>
       </div>
 
@@ -157,15 +178,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onNavigateToInvo
         <div className="xl:col-span-2 space-y-8">
           
           {/* Top Missing Vendors */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-1 h-full bg-rose-500/50"></div>
+          <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/40 border border-slate-700/30 rounded-3xl p-8 backdrop-blur-xl relative overflow-hidden group shadow-2xl shadow-black/10">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-500 via-rose-600 to-rose-700 rounded-full"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl" />
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h4 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-                  <BarChart3 className="text-rose-500" size={20} />
+                <h4 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                  <div className="p-2 bg-rose-500/10 rounded-xl">
+                    <BarChart3 className="text-rose-400" size={20} />
+                  </div>
                   Top Missing Vendor Exposure
                 </h4>
-                <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">Total value of unreceived invoices per vendor</p>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-[0.15em] mt-2 ml-12">Outstanding invoice values by vendor</p>
               </div>
             </div>
             
