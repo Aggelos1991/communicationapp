@@ -647,9 +647,6 @@ const App: React.FC = () => {
                   <Search className="absolute left-3 top-2.5 text-slate-400" size={16} aria-hidden="true" />
                   <input type="text" placeholder="Search Invoices or Vendors..." className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500/50 outline-none transition-all shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
-                {activeView === 'AP' && (
-                  <button onClick={() => setIsManualEntryModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all flex items-center gap-2"><Plus size={16} /> Add Manual</button>
-                )}
                 {activeView === 'RECON' && (
                   <button onClick={() => setIsUploadModalOpen(true)} className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(79,70,229,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Upload Excel</button>
                 )}
@@ -660,49 +657,18 @@ const App: React.FC = () => {
             </div>
 
             {activeView === 'AP' ? (
-              <div className="space-y-12">
-                <section>
-                  <div className="flex items-center gap-3 mb-6 px-2">
-                    <div className="w-1.5 h-6 bg-brand-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
-                    <h3 className="text-xl font-extrabold text-white flex items-center gap-2" style={{letterSpacing: '-0.02em'}}>
-                      <ArrowRight className="text-brand-400" size={18} />
-                      FROM RECONCILIATION
-                      <span className="text-[10px] font-semibold text-brand-400 bg-brand-950/40 px-2.5 py-1 rounded-lg border border-brand-900/30 ml-4 uppercase tracking-wider">Escalated Items</span>
-                    </h3>
-                  </div>
-                  <InvoiceList
-                    invoices={apReconInvoices}
-                    onSelectInvoice={setSelectedInvoice}
-                    onDeleteInvoice={handleDeleteInvoice}
-                    onBulkDelete={handleBulkDelete}
-                    activeView="AP"
-                    onBulkUpdateStage={handleBulkUpdateStage}
-                    onRevertStage={handleRevertStage}
-                    onBulkRevertStage={handleBulkRevertStage}
-                  />
-                </section>
-
-                <section>
-                  <div className="flex items-center gap-3 mb-6 px-2">
-                    <div className="w-1.5 h-6 bg-orange-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]"></div>
-                    <h3 className="text-xl font-extrabold text-white flex items-center gap-2" style={{letterSpacing: '-0.02em'}}>
-                      <ArrowRight className="text-orange-400" size={18} />
-                      DIRECT ENTRIES
-                      <span className="text-[10px] font-semibold text-orange-400 bg-orange-950/40 px-2.5 py-1 rounded-lg border border-orange-900/30 ml-4 uppercase tracking-wider">Local Processing</span>
-                    </h3>
-                  </div>
-                  <InvoiceList
-                    invoices={apManualInvoices}
-                    onSelectInvoice={setSelectedInvoice}
-                    onDeleteInvoice={handleDeleteInvoice}
-                    onBulkDelete={handleBulkDelete}
-                    activeView="AP"
-                    onBulkUpdateStage={handleBulkUpdateStage}
-                    onRevertStage={handleRevertStage}
-                    onBulkRevertStage={handleBulkRevertStage}
-                  />
-                </section>
-              </div>
+              <section>
+                <InvoiceList
+                  invoices={filteredInvoices}
+                  onSelectInvoice={setSelectedInvoice}
+                  onDeleteInvoice={handleDeleteInvoice}
+                  onBulkDelete={handleBulkDelete}
+                  activeView="AP"
+                  onBulkUpdateStage={handleBulkUpdateStage}
+                  onRevertStage={handleRevertStage}
+                  onBulkRevertStage={handleBulkRevertStage}
+                />
+              </section>
             ) : activeView === 'RECON' ? (
               <section>
                 <div className="flex items-center gap-3 mb-6 px-2">
