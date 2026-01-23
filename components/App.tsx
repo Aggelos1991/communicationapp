@@ -249,7 +249,7 @@ const App: React.FC = () => {
                   <Search className="absolute left-3 top-2.5 text-slate-400" size={16} aria-hidden="true" />
                   <input type="text" placeholder="Search Invoices or Vendors..." className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500/50 outline-none transition-all shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
-                {(activeView === 'AP' || activeView === 'RECON') && (
+                {activeView === 'AP' && (
                   <button onClick={() => setIsManualEntryModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all flex items-center gap-2"><Plus size={16} /> Add Manual</button>
                 )}
                 {activeView === 'RECON' && (
