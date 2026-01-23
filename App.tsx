@@ -5,6 +5,7 @@ import { InvoiceList } from './components/InvoiceList';
 import { InvoiceDetail } from './components/InvoiceDetail';
 import { UploadModal } from './components/UploadModal';
 import { UploadModalAP } from './components/UploadModalAP';
+import { DeloitteUploadModal } from './components/DeloitteUploadModal';
 import { ManualEntryModal } from './components/ManualEntryModal';
 import { AIAssistant } from './components/AIAssistant';
 import { SignIn } from './components/SignIn';
@@ -29,6 +30,7 @@ const App: React.FC = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isUploadModalAPOpen, setIsUploadModalAPOpen] = useState(false);
+  const [isDeloitteUploadOpen, setIsDeloitteUploadOpen] = useState(false);
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -648,7 +650,10 @@ const App: React.FC = () => {
                   <input type="text" placeholder="Search Invoices or Vendors..." className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500/50 outline-none transition-all shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 {activeView === 'RECON' && (
-                  <button onClick={() => setIsUploadModalOpen(true)} className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(79,70,229,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Upload Excel</button>
+                  <>
+                    <button onClick={() => setIsManualEntryModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all flex items-center gap-2"><Plus size={16} /> Add Manual</button>
+                    <button onClick={() => setIsDeloitteUploadOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Deloitte Upload</button>
+                  </>
                 )}
                 {activeView === 'AP' && (
                   <button onClick={() => setIsUploadModalAPOpen(true)} className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(234,88,12,0.3)] transition-all flex items-center gap-2 hover:scale-[1.02]"><Upload size={16} /> Import Excel</button>
@@ -766,6 +771,13 @@ const App: React.FC = () => {
           existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))}
           userEmail={user?.email}
           userRole={user?.role}
+        />
+      )}
+      {isDeloitteUploadOpen && (
+        <DeloitteUploadModal
+          onClose={() => setIsDeloitteUploadOpen(false)}
+          onUpload={handleBulkUpload}
+          existingInvoiceNumbers={new Set(invoices.map(i => i.invoiceNumber))}
         />
       )}
       {isManualEntryModalOpen && (
