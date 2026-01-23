@@ -70,38 +70,28 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
         // Get raw data with header row
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
 
-        // Deloitte format column mapping (0-indexed):
-        // Column B (index 1) = Entity
-        // Column C (index 2) = Company Name (Vendor)
-        // Column L (index 11) = Doc No (Invoice Number)
-        // Column N (index 13) = Value (Amount)
+        // Deloitte/Entersoft Ledger format column mapping (0-indexed):
+        // Column B (index 1) = Entity (e.g., SANI)
+        // Column C (index 2) = Company Name/Vendor (can be empty/null, e.g., ΡΕΦΑΝΙΔΗΣ)
+        // Column H (index 7) = Doc No (Invoice Number, e.g., 99887, ΑΠΜΜ-ΥΠΟΚΑΤ-0053450)
+        // Column J (index 9) = Gross Value (Amount)
 
         const validRows: any[] = [];
         const duplicates: string[] = [];
         const parseErrors: string[] = [];
 
-        // Skip header row (index 0), start from index 1
-        for (let i = 1; i < jsonData.length; i++) {
+        // Skip header rows (index 0, 1), start from index 2 (data rows)
+        for (let i = 2; i < jsonData.length; i++) {
           const row = jsonData[i];
           if (!row || row.length === 0) continue;
 
-          const entity = row[1] ? String(row[1]).trim() : '';      // Column B
-          const vendor = row[2] ? String(row[2]).trim() : '';       // Column C
-          const invNum = row[11] ? String(row[11]).trim() : '';     // Column L
-          const amount = row[13];                                    // Column N
+          const entity = row[1] ? String(row[1]).trim() : '';      // Column B - Entity
+          const vendor = row[2] ? String(row[2]).trim() : '';       // Column C - Company Name (can be empty)
+          const invNum = row[7] ? String(row[7]).trim() : '';       // Column H - Doc No
+          const amount = row[9];                                     // Column J - Gross Value
 
-          // Skip empty rows
-          if (!invNum && !vendor) continue;
-
-          // Validate required fields
-          if (!invNum) {
-            parseErrors.push(`Row ${i + 1}: Missing Doc No (Column L)`);
-            continue;
-          }
-          if (!vendor) {
-            parseErrors.push(`Row ${i + 1}: Missing Company Name (Column C)`);
-            continue;
-          }
+          // Skip empty rows (need at least Doc No)
+          if (!invNum) continue;
 
           // Check for duplicates
           if (existingInvoiceNumbers.has(invNum)) {
@@ -109,7 +99,7 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
             continue;
           }
 
-          // Parse amount
+          // Parse amount - handle negative values and various formats
           let parsedAmount: number | undefined;
           if (amount !== undefined && amount !== null && amount !== '') {
             const numVal = typeof amount === 'number' ? amount : parseFloat(String(amount).replace(/[^0-9.-]/g, ''));
@@ -120,7 +110,7 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
 
           validRows.push({
             invoiceNumber: invNum,
-            vendor: vendor,
+            vendor: vendor || entity || 'Unknown Vendor', // Fallback to entity or Unknown if vendor is empty
             entity: entity || undefined,
             amount: parsedAmount,
             currency: 'EUR',
@@ -137,7 +127,7 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
         }
 
         if (validRows.length === 0 && duplicates.length === 0 && parseErrors.length === 0) {
-          setError("No valid rows found. Ensure the file has data in columns B (Entity), C (Company Name), L (Doc No), and N (Value).");
+          setError("No valid rows found. Ensure the file has data in columns B (Entity), C (Company Name), H (Doc No), and J (Gross Value).");
         }
 
         setPreview(validRows);
@@ -333,12 +323,12 @@ export const DeloitteUploadModal: React.FC<DeloitteUploadModalProps> = ({ onClos
                   </div>
 
                   <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-4">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Column Mapping</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Entersoft Ledger Column Mapping</p>
                     <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-                      <div><span className="text-emerald-400 font-bold">Column B:</span> Entity</div>
-                      <div><span className="text-emerald-400 font-bold">Column C:</span> Company Name</div>
-                      <div><span className="text-emerald-400 font-bold">Column L:</span> Doc No (Invoice #)</div>
-                      <div><span className="text-emerald-400 font-bold">Column N:</span> Value (Amount)</div>
+                      <div><span className="text-emerald-400 font-bold">Column B:</span> Entity (e.g., SANI)</div>
+                      <div><span className="text-emerald-400 font-bold">Column C:</span> Company Name <span className="text-slate-500">(optional)</span></div>
+                      <div><span className="text-emerald-400 font-bold">Column H:</span> Doc No (Invoice #)</div>
+                      <div><span className="text-emerald-400 font-bold">Column J:</span> Gross Value (Amount)</div>
                     </div>
                   </div>
                   <div
