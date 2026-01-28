@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 // Get __dirname equivalent in ES modules
@@ -37,16 +38,46 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'], credentials: true }));
+// CORS: Allow all origins for development and production
+app.use(cors({
+  origin: true, // Reflects the request origin - works for any domain
+  credentials: true
+}));
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
-// Increase body size limit for compressed file attachments (10MB max)
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Download endpoint with proper Content-Disposition header for cross-origin downloads
+app.get('/api/download/*', (req: any, res: any) => {
+  const filePath = req.params[0];
+  const fullPath = path.join(__dirname, 'uploads', filePath);
+
+  // Security: prevent directory traversal
+  const normalizedPath = path.normalize(fullPath);
+  const uploadsDir = path.join(__dirname, 'uploads');
+  if (!normalizedPath.startsWith(uploadsDir)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  // Check if file exists
+  if (!fs.existsSync(fullPath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Get the original filename from query param or use the file's basename
+  const originalName = req.query.name || path.basename(filePath);
+
+  // Set Content-Disposition header to force download
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(originalName)}"`);
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+
+  res.sendFile(fullPath);
+});
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -204,158 +235,21 @@ app.post('/api/invoices/bulk-delete', authenticateToken, async (req: any, res) =
   }
 });
 
-// Bulk import from ReconRaptor - creates multiple invoices at once
-app.post('/api/invoices/bulk-import', authenticateToken, async (req: any, res) => {
+// Bulk update invoices (stage, payment_status, etc.)
+app.post('/api/invoices/bulk-update', authenticateToken, async (req: any, res) => {
   try {
-    const { invoices, attachments } = req.body;
-
-    if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
-      return res.status(400).json({ error: 'No invoices provided' });
+    const { ids, updates } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array is required' });
     }
 
-    const profile = await getProfileById(req.user.id);
-    const createdInvoices = [];
-    const errors = [];
-
-    for (const invoiceData of invoices) {
-      try {
-        // Create invoice with MISSING_INVOICE flow type
-        const invoice = await createInvoice(
-          {
-            invoice_number: invoiceData.invoice_number,
-            vendor: invoiceData.vendor,
-            entity: invoiceData.entity,
-            amount: invoiceData.amount,
-            currency: invoiceData.currency || 'EUR',
-            flow_type: 'MISSING_INVOICE',
-            current_stage: 'MISSING_INVOICE_MISSING',
-            source: invoiceData.source || 'RECON_RAPTOR'
-          },
-          req.user.id,
-          profile?.name || req.user.email,
-          profile?.role || 'Staff'
-        );
-
-        // If attachments provided for all invoices, create evidence with attachments
-        if (attachments && (attachments.vendorStatement || attachments.erpStatement)) {
-          const evidenceContent = `Imported from ReconRaptor reconciliation.\nVendor Statement: ${attachments.vendorStatement?.name || 'N/A'}\nERP Statement: ${attachments.erpStatement?.name || 'N/A'}`;
-
-          const evidence = await createEvidence(
-            invoice.id,
-            'ATTACHMENT',
-            evidenceContent,
-            'MISSING_INVOICE_MISSING',
-            req.user.id,
-            profile?.name || req.user.email
-          );
-
-          // Add vendor statement attachment
-          if (attachments.vendorStatement) {
-            await createAttachment(
-              {
-                id: attachments.vendorStatement.id,
-                name: attachments.vendorStatement.name,
-                mimeType: attachments.vendorStatement.mimeType,
-                data: attachments.vendorStatement.data,
-                originalSize: attachments.vendorStatement.originalSize || 0,
-                compressedSize: attachments.vendorStatement.compressedSize || 0
-              },
-              evidence.id,
-              undefined
-            );
-          }
-
-          // Add ERP statement attachment
-          if (attachments.erpStatement) {
-            await createAttachment(
-              {
-                id: attachments.erpStatement.id,
-                name: attachments.erpStatement.name,
-                mimeType: attachments.erpStatement.mimeType,
-                data: attachments.erpStatement.data,
-                originalSize: attachments.erpStatement.originalSize || 0,
-                compressedSize: attachments.erpStatement.compressedSize || 0
-              },
-              evidence.id,
-              undefined
-            );
-          }
-        }
-
-        createdInvoices.push(invoice);
-      } catch (err: any) {
-        errors.push({
-          invoice_number: invoiceData.invoice_number,
-          error: err.message
-        });
-      }
+    const results = [];
+    for (const id of ids) {
+      const updated = await updateInvoice(id, updates);
+      results.push(updated);
     }
-
-    res.status(201).json({
-      created: createdInvoices.length,
-      errors: errors.length,
-      invoices: createdInvoices,
-      failed: errors
-    });
+    res.json({ updated: results.length, invoices: results });
   } catch (error: any) {
-    console.error('Bulk import error:', error);
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Public endpoint for ReconRaptor (uses API key instead of JWT)
-app.post('/api/external/import-missing', async (req: any, res) => {
-  try {
-    const apiKey = req.headers['x-api-key'];
-    const expectedKey = process.env.RECON_RAPTOR_API_KEY || 'recon-raptor-secret-key';
-
-    if (!apiKey || apiKey !== expectedKey) {
-      return res.status(401).json({ error: 'Invalid API key' });
-    }
-
-    const { invoices, source } = req.body;
-
-    if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
-      return res.status(400).json({ error: 'No invoices provided' });
-    }
-
-    const createdInvoices = [];
-    const errors = [];
-
-    for (const invoiceData of invoices) {
-      try {
-        const invoice = await createInvoice(
-          {
-            invoice_number: invoiceData.invoice_number || invoiceData.Invoice,
-            vendor: invoiceData.vendor || invoiceData.Vendor || 'Unknown Vendor',
-            entity: invoiceData.entity || invoiceData.Entity,
-            amount: parseFloat(invoiceData.amount || invoiceData.Amount || 0),
-            currency: invoiceData.currency || 'EUR',
-            flow_type: 'MISSING_INVOICE',
-            current_stage: 'MISSING_INVOICE_MISSING',
-            source: source || 'RECON_RAPTOR'
-          },
-          'system',
-          'ReconRaptor Import',
-          'System'
-        );
-        createdInvoices.push(invoice);
-      } catch (err: any) {
-        errors.push({
-          invoice: invoiceData.invoice_number || invoiceData.Invoice,
-          error: err.message
-        });
-      }
-    }
-
-    res.status(201).json({
-      success: true,
-      created: createdInvoices.length,
-      errors: errors.length,
-      failed: errors
-    });
-  } catch (error: any) {
-    console.error('External import error:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -397,18 +291,27 @@ app.post('/api/evidence', authenticateToken, async (req: any, res) => {
       profile?.name || req.user.email
     );
 
-    // Create compressed attachments if provided
+    // Create attachments if provided (files already uploaded to /uploads)
+    // Handle both naming conventions: name/url/type OR originalName/path/mimetype
     if (attachments && Array.isArray(attachments)) {
       for (const att of attachments) {
+        const attachmentName = att.name || att.originalName || att.filename || 'unnamed';
+        const attachmentUrl = att.url || att.path || '';
+        // Convert mimetype to allowed type: IMAGE, PDF, EXCEL, OTHER
+        let attachmentType = 'OTHER';
+        const mimeOrType = att.type || att.mimetype || '';
+        if (mimeOrType.startsWith('image/') || mimeOrType === 'IMAGE') {
+          attachmentType = 'IMAGE';
+        } else if (mimeOrType === 'application/pdf' || mimeOrType === 'PDF') {
+          attachmentType = 'PDF';
+        } else if (mimeOrType.includes('excel') || mimeOrType.includes('spreadsheet') || mimeOrType === 'EXCEL') {
+          attachmentType = 'EXCEL';
+        }
         await createAttachment(
-          {
-            id: att.id,
-            name: att.name,
-            mimeType: att.mimeType,
-            data: att.data,
-            originalSize: att.originalSize || 0,
-            compressedSize: att.compressedSize || 0
-          },
+          attachmentName,
+          attachmentUrl,
+          attachmentType,
+          att.size || 0,
           evidence.id,
           undefined
         );
@@ -458,6 +361,7 @@ app.get('/api/payment-validations/invoice/:invoiceId', authenticateToken, async 
 app.post('/api/payment-validations', authenticateToken, async (req: any, res) => {
   try {
     const { invoice_id, comments, attachments } = req.body;
+    console.log('Payment validation request:', { invoice_id, comments, attachments: JSON.stringify(attachments) });
     const profile = await getProfileById(req.user.id);
     const validation = await createPaymentValidation(
       invoice_id,
@@ -466,19 +370,27 @@ app.post('/api/payment-validations', authenticateToken, async (req: any, res) =>
       comments
     );
 
-    // Create compressed attachments if provided
+    // Create attachments if provided
+    // Handle both naming conventions: name/url/type OR originalName/path/mimetype
     if (attachments && Array.isArray(attachments)) {
       for (const att of attachments) {
-        // New compressed attachment format
+        const attachmentName = att.name || att.originalName || att.filename || 'unnamed';
+        const attachmentUrl = att.url || att.path || '';
+        // Convert mimetype to allowed type: IMAGE, PDF, EXCEL, OTHER
+        let attachmentType = 'OTHER';
+        const mimeOrType = att.type || att.mimetype || '';
+        if (mimeOrType.startsWith('image/') || mimeOrType === 'IMAGE') {
+          attachmentType = 'IMAGE';
+        } else if (mimeOrType === 'application/pdf' || mimeOrType === 'PDF') {
+          attachmentType = 'PDF';
+        } else if (mimeOrType.includes('excel') || mimeOrType.includes('spreadsheet') || mimeOrType === 'EXCEL') {
+          attachmentType = 'EXCEL';
+        }
         await createAttachment(
-          {
-            id: att.id,
-            name: att.name,
-            mimeType: att.mimeType,
-            data: att.data,
-            originalSize: att.originalSize || 0,
-            compressedSize: att.compressedSize || 0
-          },
+          attachmentName,
+          attachmentUrl,
+          attachmentType,
+          att.size || 0,
           undefined,
           validation.id
         );
@@ -554,21 +466,9 @@ app.get('/api/attachments/payment-validation/:paymentValidationId', authenticate
 
 app.post('/api/attachments', authenticateToken, async (req: any, res) => {
   try {
-    const { attachment, evidence_id, payment_validation_id } = req.body;
-    // New compressed attachment format
-    const created = await createAttachment(
-      {
-        id: attachment?.id,
-        name: attachment?.name,
-        mimeType: attachment?.mimeType,
-        data: attachment?.data,
-        originalSize: attachment?.originalSize || 0,
-        compressedSize: attachment?.compressedSize || 0
-      },
-      evidence_id,
-      payment_validation_id
-    );
-    res.status(201).json(created);
+    const { name, url, type, size, evidence_id, payment_validation_id } = req.body;
+    const attachment = await createAttachment(name, url, type, size, evidence_id, payment_validation_id);
+    res.status(201).json(attachment);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
